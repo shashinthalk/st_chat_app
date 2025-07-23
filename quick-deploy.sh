@@ -14,8 +14,9 @@ echo "⚡ Memory Usage: 2GB+ → 300-500MB"
 echo "🚀 Startup Time: 60s+ → 10-20s"
 echo ""
 
-echo "🔨 Building ultra-minimal Docker image..."
-echo "Command: docker build -f Dockerfile.ultra-minimal -t st-flask:ultra-minimal ."
+echo "🔨 Build Commands (PyPI index issue fixed):"
+echo "  docker build -f Dockerfile.ultra-minimal -t st-flask:ultra-minimal ."
+echo "  # Fallback to standard PyTorch if CPU version fails"
 echo ""
 
 echo "🚀 Deploy to your production server with this command:"

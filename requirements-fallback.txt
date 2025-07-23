@@ -1,0 +1,16 @@
+# Fallback requirements with standard PyTorch (if CPU version fails)
+flask==2.3.3
+gunicorn==21.2.0
+pymongo==4.6.0
+python-dotenv==1.0.0
+
+# Standard ML stack (will be larger but always works)
+numpy==1.24.3
+scikit-learn==1.3.0
+torch==2.1.0
+
+# Minimal transformers components
+sentence-transformers==2.2.2
+transformers==4.35.2
+tokenizers==0.15.0
+huggingface-hub==0.19.4 

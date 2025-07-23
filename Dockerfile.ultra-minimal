@@ -14,9 +14,10 @@ RUN useradd --create-home --shell /bin/bash appuser
 WORKDIR /app
 
 # Copy requirements and install Python packages
-COPY requirements-minimal.txt .
+COPY requirements-minimal.txt requirements-fallback.txt ./
 RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir -r requirements-minimal.txt \
+    && (pip install --no-cache-dir -r requirements-minimal.txt || \
+        pip install --no-cache-dir -r requirements-fallback.txt) \
     && pip cache purge \
     && rm -rf /root/.cache/pip/*
 

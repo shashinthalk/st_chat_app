@@ -15,9 +15,10 @@ RUN apk add --no-cache \
 # Set working directory
 WORKDIR /app
 
-# Copy and install Python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir --user -r requirements.txt
+# Copy and install Python dependencies with fallback
+COPY requirements.txt requirements-fallback.txt ./
+RUN pip install --no-cache-dir --user -r requirements.txt || \
+    pip install --no-cache-dir --user -r requirements-fallback.txt
 
 # Production stage with minimal footprint
 FROM python:3.10-alpine AS production
