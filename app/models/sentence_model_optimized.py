@@ -8,13 +8,19 @@ for production deployment with memory monitoring and aggressive cleanup.
 import logging
 import gc
 import os
-import psutil
 import threading
 from typing import List, Optional
 import numpy as np
 from sentence_transformers import SentenceTransformer
 from flask import current_app, g
 import torch
+
+# Optional psutil import for monitoring
+try:
+    import psutil
+    PSUTIL_AVAILABLE = True
+except ImportError:
+    PSUTIL_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -26,17 +32,20 @@ _model_lock = threading.Lock()
 def log_memory_usage(context: str):
     """Log current memory usage for monitoring."""
     try:
-        process = psutil.Process()
-        memory_info = process.memory_info()
-        memory_mb = memory_info.rss / 1024 / 1024
-        logger.info(f"Memory usage {context}: {memory_mb:.1f} MB (RSS), {memory_info.vms / 1024 / 1024:.1f} MB (VMS)")
-        
-        # Log system memory if available
-        try:
-            sys_memory = psutil.virtual_memory()
-            logger.info(f"System memory {context}: {sys_memory.percent}% used, {sys_memory.available / 1024 / 1024:.1f} MB available")
-        except:
-            pass
+        if PSUTIL_AVAILABLE:
+            process = psutil.Process()
+            memory_info = process.memory_info()
+            memory_mb = memory_info.rss / 1024 / 1024
+            logger.info(f"Memory usage {context}: {memory_mb:.1f} MB (RSS), {memory_info.vms / 1024 / 1024:.1f} MB (VMS)")
+            
+            # Log system memory if available
+            try:
+                sys_memory = psutil.virtual_memory()
+                logger.info(f"System memory {context}: {sys_memory.percent}% used, {sys_memory.available / 1024 / 1024:.1f} MB available")
+            except:
+                pass
+        else:
+            logger.info(f"Memory monitoring {context}: psutil not available")
     except Exception as e:
         logger.warning(f"Could not log memory usage: {e}")
 

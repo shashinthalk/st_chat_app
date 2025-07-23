@@ -13,6 +13,13 @@ from app.database.mongodb import DocumentService
 from app.models.sentence_model_optimized import OptimizedEmbeddingService, get_sentence_model_optimized, monitor_memory
 from app.utils.similarity import SimilarityCalculator, ThresholdValidator
 
+# Optional psutil import for monitoring
+try:
+    import psutil
+    PSUTIL_AVAILABLE = True
+except ImportError:
+    PSUTIL_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 # Create Blueprint for API routes
@@ -63,20 +70,24 @@ def health_check():
                 'error': str(e)
             }
         
-        # Get resource information
+        # Get resource information (optional psutil)
         resource_info = {}
         try:
-            import psutil
-            process = psutil.Process()
-            memory_info = process.memory_info()
-            resource_info = {
-                'memory_mb': round(memory_info.rss / 1024 / 1024, 1),
-                'memory_percent': round(process.memory_percent(), 1),
-                'cpu_percent': round(process.cpu_percent(), 1),
-                'threads': process.num_threads()
-            }
-        except ImportError:
-            resource_info = {'status': 'monitoring_unavailable'}
+            if PSUTIL_AVAILABLE:
+                process = psutil.Process()
+                memory_info = process.memory_info()
+                resource_info = {
+                    'memory_mb': round(memory_info.rss / 1024 / 1024, 1),
+                    'memory_percent': round(process.memory_percent(), 1),
+                    'cpu_percent': round(process.cpu_percent(), 1),
+                    'threads': process.num_threads(),
+                    'monitoring': 'psutil_available'
+                }
+            else:
+                resource_info = {
+                    'monitoring': 'psutil_unavailable',
+                    'message': 'Install psutil for detailed resource monitoring'
+                }
         except Exception as e:
             resource_info = {'status': 'monitoring_error', 'error': str(e)}
         
@@ -97,7 +108,8 @@ def health_check():
                 'mongodb_database': current_app.config.get('MONGODB_DATABASE'),
                 'mongodb_collection': current_app.config.get('MONGODB_COLLECTION'),
                 'workers': 'optimized',
-                'memory_optimization': True
+                'memory_optimization': True,
+                'psutil_monitoring': PSUTIL_AVAILABLE
             }
         }
         

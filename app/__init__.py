@@ -31,9 +31,21 @@ def create_app(config_class=Config):
     # Initialize database connection
     init_db(app)
     
-    # Initialize sentence transformer model with production optimization
-    from app.models.sentence_model_optimized import init_sentence_model_optimized
-    init_sentence_model_optimized(app)
+    # Initialize sentence transformer model with fallback support
+    try:
+        # Try optimized model first
+        from app.models.sentence_model_optimized import init_sentence_model_optimized
+        init_sentence_model_optimized(app)
+        app.logger.info("Flask application created successfully with optimized model")
+    except ImportError as e:
+        if 'psutil' in str(e):
+            # Fallback to minimal model if psutil is not available
+            app.logger.warning("psutil not available, falling back to minimal model")
+            from app.models.sentence_model_minimal import init_sentence_model_minimal
+            init_sentence_model_minimal(app)
+            app.logger.info("Flask application created successfully with minimal model (psutil fallback)")
+        else:
+            raise
     
     # Register blueprints
     from app.api.routes import api_bp
@@ -42,7 +54,6 @@ def create_app(config_class=Config):
     # Register error handlers
     register_error_handlers(app)
     
-    app.logger.info("Flask application created successfully with optimized model")
     return app
 
 
