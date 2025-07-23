@@ -12,11 +12,11 @@ import multiprocessing
 bind = "0.0.0.0:5001"
 backlog = 2048
 
-# Worker processes - reduced for memory-intensive ML operations
+# Worker processes - optimized for lightweight ML model
 workers = 1  # Single worker for memory efficiency with ML models
 worker_class = "sync"
 worker_connections = 1000
-timeout = 300  # Increased timeout for model operations
+timeout = 120  # Further reduced timeout with ultra-lightweight model
 keepalive = 2
 
 # Restart workers after fewer requests due to memory usage

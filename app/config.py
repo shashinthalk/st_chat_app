@@ -23,8 +23,8 @@ class Config:
     MONGODB_DATABASE = os.environ.get('MONGODB_DATABASE') or 'automation_with_ai_data'
     MONGODB_COLLECTION = os.environ.get('MONGODB_COLLECTION') or 'knowledge_base'
     
-    # Sentence Transformer settings
-    MODEL_NAME = os.environ.get('MODEL_NAME') or 'all-MiniLM-L6-v2'
+    # Sentence Transformer settings - using ultra-lightweight model for production
+    MODEL_NAME = os.environ.get('MODEL_NAME') or 'paraphrase-MiniLM-L3-v2'
     SIMILARITY_THRESHOLD = float(os.environ.get('SIMILARITY_THRESHOLD', '0.6'))
     
     # Application settings
