@@ -3,13 +3,14 @@ API Routes
 
 This module defines the Flask API endpoints including health check and query endpoints
 with proper request validation, error handling, and response formatting.
+Optimized for production with memory monitoring and resource management.
 """
 
 import logging
 from flask import Blueprint, request, jsonify, current_app
 from werkzeug.exceptions import BadRequest
 from app.database.mongodb import DocumentService
-from app.models.sentence_model_minimal import MinimalEmbeddingService, get_sentence_model_minimal
+from app.models.sentence_model_optimized import OptimizedEmbeddingService, get_sentence_model_optimized, monitor_memory
 from app.utils.similarity import SimilarityCalculator, ThresholdValidator
 
 logger = logging.getLogger(__name__)
@@ -21,32 +22,33 @@ api_bp = Blueprint('api', __name__)
 @api_bp.route('/health', methods=['GET'])
 def health_check():
     """
-    Health check endpoint that provides comprehensive system status.
+    Health check endpoint that provides comprehensive system status with resource monitoring.
     
     Returns:
-        JSON response with health status, model status, and database connectivity
+        JSON response with health status, model status, database connectivity, and resource usage
     """
     try:
-        # Check model health (minimal version)
+        # Check model health (optimized version)
         try:
-            model = get_sentence_model_minimal()
+            model = get_sentence_model_optimized()
             model_info = {
                 'status': 'healthy',
                 'model_name': current_app.config.get('MODEL_NAME', 'unknown'),
                 'loaded': True,
                 'embedding_dimension': 384,  # Known for paraphrase-MiniLM-L3-v2
-                'test_successful': True
+                'test_successful': True,
+                'optimization': 'production-optimized'
             }
         except Exception as e:
             model_info = {
                 'status': 'error',
                 'loaded': False,
-                'error': str(e)
+                'error': str(e),
+                'optimization': 'failed'
             }
         
         # Check database connectivity
         try:
-            # Try to get document count to verify DB connection
             documents = DocumentService.get_all_documents()
             db_status = {
                 'status': 'healthy',
@@ -61,6 +63,23 @@ def health_check():
                 'error': str(e)
             }
         
+        # Get resource information
+        resource_info = {}
+        try:
+            import psutil
+            process = psutil.Process()
+            memory_info = process.memory_info()
+            resource_info = {
+                'memory_mb': round(memory_info.rss / 1024 / 1024, 1),
+                'memory_percent': round(process.memory_percent(), 1),
+                'cpu_percent': round(process.cpu_percent(), 1),
+                'threads': process.num_threads()
+            }
+        except ImportError:
+            resource_info = {'status': 'monitoring_unavailable'}
+        except Exception as e:
+            resource_info = {'status': 'monitoring_error', 'error': str(e)}
+        
         # Determine overall health
         overall_healthy = (
             model_info.get('status') == 'healthy' and 
@@ -72,10 +91,13 @@ def health_check():
             'timestamp': None,  # Will be added by Flask if needed
             'model': model_info,
             'database': db_status,
+            'resources': resource_info,
             'config': {
                 'similarity_threshold': current_app.config.get('SIMILARITY_THRESHOLD', 0.6),
                 'mongodb_database': current_app.config.get('MONGODB_DATABASE'),
-                'mongodb_collection': current_app.config.get('MONGODB_COLLECTION')
+                'mongodb_collection': current_app.config.get('MONGODB_COLLECTION'),
+                'workers': 'optimized',
+                'memory_optimization': True
             }
         }
         
@@ -92,9 +114,11 @@ def health_check():
 
 
 @api_bp.route('/query', methods=['POST'])
+@monitor_memory
 def query_endpoint():
     """
     Main query endpoint for semantic search against MongoDB documents.
+    Optimized with memory monitoring and aggressive cleanup.
     
     Expected JSON payload:
     {
@@ -174,18 +198,18 @@ def query_endpoint():
                 'status_code': 500
             }), 500
         
-        # Generate embeddings for documents and query
+        # Generate embeddings for documents and query using optimized service
         try:
-            # Extract questions and embed with minimal service
+            # Extract questions and embed with optimized service
             questions = [doc['question'] for doc in documents if 'question' in doc and doc['question'].strip()]
             valid_documents = [doc for doc in documents if 'question' in doc and doc['question'].strip()]
             
             if not questions:
                 return jsonify({'error': 'No valid questions in database', 'status_code': 503}), 503
             
-            # Embed all questions and user query with minimal service
-            document_embeddings = MinimalEmbeddingService.embed_texts_minimal(questions)
-            query_embedding = MinimalEmbeddingService.embed_text_minimal(question.strip())
+            # Embed all questions and user query with optimized service
+            document_embeddings = OptimizedEmbeddingService.embed_texts_optimized(questions)
+            query_embedding = OptimizedEmbeddingService.embed_text_optimized(question.strip())
             
         except Exception as e:
             logger.error(f"Failed to generate embeddings: {e}")
@@ -209,6 +233,9 @@ def query_endpoint():
                 'error': 'Failed to process query - similarity calculation error',
                 'status_code': 500
             }), 500
+        finally:
+            # Force cleanup after processing
+            OptimizedEmbeddingService.cleanup_memory()
         
         # Handle no match found (below threshold)
         if best_document is None:
@@ -234,7 +261,8 @@ def query_endpoint():
                 'document_id': best_document.get('_id'),
                 'threshold_used': custom_threshold or current_app.config.get('SIMILARITY_THRESHOLD', 0.6),
                 'total_documents_searched': len(valid_documents),
-                'match_index': best_index
+                'match_index': best_index,
+                'optimization': 'production-optimized'
             }
         }
         
@@ -250,9 +278,11 @@ def query_endpoint():
 
 
 @api_bp.route('/query/batch', methods=['POST'])
+@monitor_memory
 def batch_query_endpoint():
     """
     Batch query endpoint for processing multiple questions at once.
+    Optimized with memory monitoring and efficient batch processing.
     
     Expected JSON payload:
     {
@@ -322,20 +352,20 @@ def batch_query_endpoint():
                 'status_code': 503
             }), 503
         
-        # Extract and embed questions with minimal service
-        questions = [doc['question'] for doc in documents if 'question' in doc and doc['question'].strip()]
+        # Extract and embed questions with optimized service
+        db_questions = [doc['question'] for doc in documents if 'question' in doc and doc['question'].strip()]
         valid_documents = [doc for doc in documents if 'question' in doc and doc['question'].strip()]
         
-        if not questions:
+        if not db_questions:
             return jsonify({'error': 'No valid questions in database', 'status_code': 503}), 503
             
-        document_embeddings = MinimalEmbeddingService.embed_texts_minimal(questions)
+        document_embeddings = OptimizedEmbeddingService.embed_texts_optimized(db_questions)
         
-        # Process each question
+        # Process each question with memory cleanup
         results = []
         for i, question in enumerate(questions):
             try:
-                query_embedding = MinimalEmbeddingService.embed_text_minimal(question.strip())
+                query_embedding = OptimizedEmbeddingService.embed_text_optimized(question.strip())
                 
                 if top_k == 1:
                     best_document, similarity_score, best_index = SimilarityCalculator.find_best_match(
@@ -379,6 +409,9 @@ def batch_query_endpoint():
                         'query': question,
                         'matches': matches
                     })
+                
+                # Force cleanup after each question to manage memory
+                OptimizedEmbeddingService.cleanup_memory()
                     
             except Exception as e:
                 logger.error(f"Failed to process question {i}: {e}")
@@ -395,7 +428,8 @@ def batch_query_endpoint():
                 'total_questions': len(questions),
                 'total_documents_searched': len(valid_documents),
                 'threshold_used': custom_threshold or current_app.config.get('SIMILARITY_THRESHOLD', 0.6),
-                'top_k': top_k
+                'top_k': top_k,
+                'optimization': 'production-optimized'
             }
         }), 200
         
@@ -405,6 +439,9 @@ def batch_query_endpoint():
             'error': 'An unexpected error occurred while processing batch query',
             'status_code': 500
         }), 500
+    finally:
+        # Final cleanup after batch processing
+        OptimizedEmbeddingService.cleanup_memory()
 
 
 # Error handlers specific to API blueprint
@@ -418,7 +455,7 @@ def api_bad_request(error):
     }), 400
 
 
-@api_bp.errorhandler(404)
+@api_bp.errorhandler(404)  
 def api_not_found(error):
     """Handle 404 errors within API blueprint."""
     return jsonify({

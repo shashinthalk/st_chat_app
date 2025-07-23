@@ -10,7 +10,6 @@ import os
 from flask import Flask, jsonify
 from app.config import Config
 from app.database.mongodb import init_db
-from app.models.sentence_model import init_sentence_model
 
 
 def create_app(config_class=Config):
@@ -32,9 +31,9 @@ def create_app(config_class=Config):
     # Initialize database connection
     init_db(app)
     
-    # Initialize sentence transformer model with minimal setup
-    from app.models.sentence_model_minimal import init_sentence_model_minimal
-    init_sentence_model_minimal(app)
+    # Initialize sentence transformer model with production optimization
+    from app.models.sentence_model_optimized import init_sentence_model_optimized
+    init_sentence_model_optimized(app)
     
     # Register blueprints
     from app.api.routes import api_bp
@@ -43,7 +42,7 @@ def create_app(config_class=Config):
     # Register error handlers
     register_error_handlers(app)
     
-    app.logger.info("Flask application created successfully")
+    app.logger.info("Flask application created successfully with optimized model")
     return app
 
 

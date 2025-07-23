@@ -1,0 +1,19 @@
+# Production requirements with monitoring
+flask==2.3.3
+gunicorn==21.2.0
+pymongo==4.6.0
+
+# Essential ML - CPU only, minimal dependencies
+numpy==1.24.3
+
+# CPU-only PyTorch (smallest possible)
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.1.0+cpu --no-deps
+
+# Minimal sentence transformers (only essential components)
+transformers==4.35.2 --no-deps
+tokenizers==0.15.0
+sentence-transformers==2.2.2 
+
+# System monitoring for production
+psutil==5.9.6 

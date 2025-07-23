@@ -1,0 +1,66 @@
+# Production-optimized Docker image for 8GB server
+FROM python:3.10-slim as base
+
+# Install system dependencies with monitoring tools
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    htop \
+    procps \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get purge -y --auto-remove
+
+# Create logs directory and app user
+RUN mkdir -p /app/logs && \
+    useradd --create-home --shell /bin/bash appuser && \
+    chown -R appuser:appuser /app
+
+WORKDIR /app
+
+# Copy requirements and install with optimization
+COPY requirements-ultra-minimal.txt requirements-fallback.txt ./
+
+# Install Python packages with aggressive caching disabled
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements-ultra-minimal.txt && \
+    pip cache purge && \
+    rm -rf /root/.cache/pip/* /tmp/*
+
+# Copy application files
+COPY --chown=appuser:appuser app/ ./app/
+COPY --chown=appuser:appuser run.py ./
+COPY --chown=appuser:appuser gunicorn-production.conf.py ./
+
+# Switch to non-root user  
+USER appuser
+
+# Production environment variables
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1  
+ENV FLASK_ENV=production
+ENV MODEL_NAME=paraphrase-MiniLM-L3-v2
+
+# CRITICAL: Model optimization environment variables
+ENV SENTENCE_TRANSFORMERS_HOME=/tmp/sentence_transformers
+ENV HF_HOME=/tmp/huggingface
+ENV TRANSFORMERS_CACHE=/tmp/transformers_cache
+ENV TRANSFORMERS_OFFLINE=0
+
+# Disable unnecessary model formats (CRITICAL for memory)
+ENV SENTENCE_TRANSFORMERS_DISABLE_ONNX=1
+ENV SENTENCE_TRANSFORMERS_DISABLE_OPENVINO=1
+ENV PYTORCH_TRANSFORMERS_CACHE=/tmp/transformers_cache
+ENV HF_DATASETS_OFFLINE=1
+
+# Memory management
+ENV MALLOC_TRIM_THRESHOLD_=100000
+ENV MALLOC_TOP_PAD_=100000
+
+# Expose port
+EXPOSE 5001
+
+# Multi-stage health check with memory monitoring
+HEALTHCHECK --interval=30s --timeout=10s --start-period=180s --retries=3 \
+    CMD curl -f http://localhost:5001/health || exit 1
+
+# Run with production configuration
+CMD ["gunicorn", "--config", "gunicorn-production.conf.py", "run:app"] 
