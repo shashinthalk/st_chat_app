@@ -27,7 +27,6 @@ RUN pip install --no-cache-dir --upgrade pip && \
 COPY app/ ./app/
 COPY run.py .
 COPY gunicorn.conf.py .
-COPY .env.example .
 
 # Create non-root user for security
 RUN adduser --disabled-password --gecos '' appuser && \
