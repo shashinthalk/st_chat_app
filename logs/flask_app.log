@@ -1,7 +1,0 @@
-2025-07-23 13:05:49,996 INFO: Connected to MongoDB: mongodb+srv://nishanshashinthalive:NQGLM8NUZcZP5QlY@n8n-automation-data.2ednq1p.mongodb.net/?retryWrites=true&w=majority&appName=n8n-automation-data [in /Users/nishanshashintha/Documents/python/st_chat_app/app/database/mongodb.py:34]
-2025-07-23 13:05:49,996 INFO: Loading sentence transformer model: all-MiniLM-L6-v2 [in /Users/nishanshashintha/Documents/python/st_chat_app/app/models/sentence_model.py:26]
-2025-07-23 13:05:50,330 INFO: Sentence transformer model loaded successfully [in /Users/nishanshashintha/Documents/python/st_chat_app/app/models/sentence_model.py:32]
-2025-07-23 13:05:50,332 INFO: Flask application created successfully [in /Users/nishanshashintha/Documents/python/st_chat_app/app/__init__.py:45]
-2025-07-23 13:09:39,044 INFO: Processing query: 'user question here...' with threshold: 0.7 [in /Users/nishanshashintha/Documents/python/st_chat_app/app/api/routes.py:145]
-2025-07-23 13:09:39,413 INFO: Retrieved 1 documents from MongoDB [in /Users/nishanshashintha/Documents/python/st_chat_app/app/database/mongodb.py:88]
-2025-07-23 13:09:39,415 INFO: Found 1 valid documents for embedding [in /Users/nishanshashintha/Documents/python/st_chat_app/app/database/mongodb.py:177]

@@ -1,26 +1,9 @@
 """
-API Routes
-
-This module defines the Flask API endpoints including health check and query endpoints
-with proper request validation, error handling, and response formatting.
-Optimized for production with memory monitoring and resource management.
+Simple API Routes for Flask Q&A Service
 """
 
-import logging
-from flask import Blueprint, request, jsonify, current_app
-from werkzeug.exceptions import BadRequest
-from app.database.mongodb import DocumentService
-from app.models.sentence_model_optimized import OptimizedEmbeddingService, get_sentence_model_optimized, monitor_memory
-from app.utils.similarity import SimilarityCalculator, ThresholdValidator
-
-# Optional psutil import for monitoring
-try:
-    import psutil
-    PSUTIL_AVAILABLE = True
-except ImportError:
-    PSUTIL_AVAILABLE = False
-
-logger = logging.getLogger(__name__)
+from flask import Blueprint, request, jsonify
+from app.data import QA_DATA
 
 # Create Blueprint for API routes
 api_bp = Blueprint('api', __name__)
@@ -29,113 +12,27 @@ api_bp = Blueprint('api', __name__)
 @api_bp.route('/health', methods=['GET'])
 def health_check():
     """
-    Health check endpoint that provides comprehensive system status with resource monitoring.
+    Health check endpoint.
     
     Returns:
-        JSON response with health status, model status, database connectivity, and resource usage
+        JSON response with health status
     """
-    try:
-        # Check model health (optimized version)
-        try:
-            model = get_sentence_model_optimized()
-            model_info = {
-                'status': 'healthy',
-                'model_name': current_app.config.get('MODEL_NAME', 'unknown'),
-                'loaded': True,
-                'embedding_dimension': 384,  # Known for paraphrase-MiniLM-L3-v2
-                'test_successful': True,
-                'optimization': 'production-optimized'
-            }
-        except Exception as e:
-            model_info = {
-                'status': 'error',
-                'loaded': False,
-                'error': str(e),
-                'optimization': 'failed'
-            }
-        
-        # Check database connectivity
-        try:
-            documents = DocumentService.get_all_documents()
-            db_status = {
-                'status': 'healthy',
-                'connected': True,
-                'document_count': len(documents)
-            }
-        except Exception as e:
-            logger.error(f"Database health check failed: {e}")
-            db_status = {
-                'status': 'unhealthy',
-                'connected': False,
-                'error': str(e)
-            }
-        
-        # Get resource information (optional psutil)
-        resource_info = {}
-        try:
-            if PSUTIL_AVAILABLE:
-                process = psutil.Process()
-                memory_info = process.memory_info()
-                resource_info = {
-                    'memory_mb': round(memory_info.rss / 1024 / 1024, 1),
-                    'memory_percent': round(process.memory_percent(), 1),
-                    'cpu_percent': round(process.cpu_percent(), 1),
-                    'threads': process.num_threads(),
-                    'monitoring': 'psutil_available'
-                }
-            else:
-                resource_info = {
-                    'monitoring': 'psutil_unavailable',
-                    'message': 'Install psutil for detailed resource monitoring'
-                }
-        except Exception as e:
-            resource_info = {'status': 'monitoring_error', 'error': str(e)}
-        
-        # Determine overall health
-        overall_healthy = (
-            model_info.get('status') == 'healthy' and 
-            db_status.get('status') == 'healthy'
-        )
-        
-        response = {
-            'status': 'healthy' if overall_healthy else 'unhealthy',
-            'timestamp': None,  # Will be added by Flask if needed
-            'model': model_info,
-            'database': db_status,
-            'resources': resource_info,
-            'config': {
-                'similarity_threshold': current_app.config.get('SIMILARITY_THRESHOLD', 0.6),
-                'mongodb_database': current_app.config.get('MONGODB_DATABASE'),
-                'mongodb_collection': current_app.config.get('MONGODB_COLLECTION'),
-                'workers': 'optimized',
-                'memory_optimization': True,
-                'psutil_monitoring': PSUTIL_AVAILABLE
-            }
-        }
-        
-        status_code = 200 if overall_healthy else 503
-        return jsonify(response), status_code
-        
-    except Exception as e:
-        logger.error(f"Health check endpoint failed: {e}")
-        return jsonify({
-            'status': 'unhealthy',
-            'error': 'Health check failed',
-            'details': str(e)
-        }), 500
+    return jsonify({
+        'status': 'healthy',
+        'message': 'Flask Q&A API is running',
+        'available_endpoints': ['/health', '/query'],
+        'data_count': len(QA_DATA)
+    }), 200
 
 
 @api_bp.route('/query', methods=['POST'])
-@monitor_memory
 def query_endpoint():
     """
-    Main query endpoint for semantic search against MongoDB documents.
-    Optimized with memory monitoring and aggressive cleanup.
+    Query endpoint for Q&A matching.
     
     Expected JSON payload:
     {
-        "question": "user question here",
-        "threshold": 0.7  // optional, overrides config
+        "question": "user question here"
     }
     
     Returns:
@@ -144,22 +41,13 @@ def query_endpoint():
     try:
         # Validate request content type
         if not request.is_json:
-            logger.warning("Query request without JSON content type")
             return jsonify({
                 'error': 'Request must have Content-Type: application/json',
                 'status_code': 400
             }), 400
         
         # Get and validate JSON data
-        try:
-            data = request.get_json()
-        except BadRequest as e:
-            logger.warning(f"Invalid JSON in query request: {e}")
-            return jsonify({
-                'error': 'Invalid JSON format in request body',
-                'status_code': 400
-            }), 400
-        
+        data = request.get_json()
         if not data:
             return jsonify({
                 'error': 'Request body cannot be empty',
@@ -180,299 +68,60 @@ def query_endpoint():
                 'status_code': 400
             }), 400
         
-        # Validate optional threshold
-        custom_threshold = None
-        if 'threshold' in data:
-            try:
-                custom_threshold = ThresholdValidator.get_effective_threshold(data['threshold'])
-            except ValueError as e:
+        # Search for matching question in Q&A data
+        question_lower = question.strip().lower()
+        
+        # Define common synonyms for better matching
+        ai_keywords = ['ai', 'artificial intelligence', 'artificial', 'intelligence']
+        ml_keywords = ['ml', 'machine learning', 'machine', 'learning']
+        
+        for qa_item in QA_DATA:
+            qa_question_lower = qa_item['question'].lower()
+            
+            # Direct substring matching
+            if question_lower in qa_question_lower or qa_question_lower in question_lower:
                 return jsonify({
-                    'error': f'Invalid threshold: {str(e)}',
-                    'status_code': 400
-                }), 400
-        
-        # Log the incoming query
-        logger.info(f"Processing query: '{question[:100]}...' with threshold: {custom_threshold}")
-        
-        # Get documents from MongoDB
-        try:
-            documents = DocumentService.get_questions_for_embedding()
-            if not documents:
-                logger.warning("No documents found in database")
+                    'question': qa_item['question'],
+                    'answer': qa_item['answer'],
+                    'matched': True,
+                    'match_type': 'direct'
+                }), 200
+            
+            # Enhanced keyword matching for AI/ML topics
+            if any(keyword in question_lower for keyword in ai_keywords) and \
+               any(keyword in qa_question_lower for keyword in ai_keywords):
                 return jsonify({
-                    'error': 'No data available for search',
-                    'status_code': 503
-                }), 503
-        except Exception as e:
-            logger.error(f"Failed to retrieve documents: {e}")
-            return jsonify({
-                'error': 'Database error occurred',
-                'status_code': 500
-            }), 500
-        
-        # Generate embeddings for documents and query using optimized service
-        try:
-            # Extract questions and embed with optimized service
-            questions = [doc['question'] for doc in documents if 'question' in doc and doc['question'].strip()]
-            valid_documents = [doc for doc in documents if 'question' in doc and doc['question'].strip()]
+                    'question': qa_item['question'],
+                    'answer': qa_item['answer'],
+                    'matched': True,
+                    'match_type': 'keyword'
+                }), 200
             
-            if not questions:
-                return jsonify({'error': 'No valid questions in database', 'status_code': 503}), 503
-            
-            # Embed all questions and user query with optimized service
-            document_embeddings = OptimizedEmbeddingService.embed_texts_optimized(questions)
-            query_embedding = OptimizedEmbeddingService.embed_text_optimized(question.strip())
-            
-        except Exception as e:
-            logger.error(f"Failed to generate embeddings: {e}")
-            return jsonify({
-                'error': 'Failed to process query - embedding error',
-                'status_code': 500
-            }), 500
+            if any(keyword in question_lower for keyword in ml_keywords) and \
+               any(keyword in qa_question_lower for keyword in ml_keywords):
+                return jsonify({
+                    'question': qa_item['question'],
+                    'answer': qa_item['answer'],
+                    'matched': True,
+                    'match_type': 'keyword'
+                }), 200
         
-        # Find best match using similarity calculation
-        try:
-            best_document, similarity_score, best_index = SimilarityCalculator.find_best_match(
-                query_embedding=query_embedding,
-                document_embeddings=document_embeddings,
-                documents=valid_documents,
-                threshold=custom_threshold
-            )
-            
-        except Exception as e:
-            logger.error(f"Failed to calculate similarity: {e}")
-            return jsonify({
-                'error': 'Failed to process query - similarity calculation error',
-                'status_code': 500
-            }), 500
-        finally:
-            # Force cleanup after processing
-            OptimizedEmbeddingService.cleanup_memory()
-        
-        # Handle no match found (below threshold)
-        if best_document is None:
-            effective_threshold = custom_threshold or current_app.config.get('SIMILARITY_THRESHOLD', 0.6)
-            logger.info(f"No match found above threshold {effective_threshold} (best similarity: {similarity_score:.4f})")
-            
-            return jsonify({
-                'error': 'No matching data found.',
-                'details': {
-                    'best_similarity': round(similarity_score, 4),
-                    'threshold_used': effective_threshold,
-                    'total_documents_searched': len(valid_documents)
-                },
-                'status_code': 404
-            }), 404
-        
-        # Prepare successful response
-        response = {
-            'matched_question': best_document['question'],
-            'answers': best_document['answers'],
-            'similarity_score': round(similarity_score, 4),
-            'metadata': {
-                'document_id': best_document.get('_id'),
-                'threshold_used': custom_threshold or current_app.config.get('SIMILARITY_THRESHOLD', 0.6),
-                'total_documents_searched': len(valid_documents),
-                'match_index': best_index,
-                'optimization': 'production-optimized'
-            }
-        }
-        
-        logger.info(f"Successfully matched query with similarity {similarity_score:.4f}")
-        return jsonify(response), 200
+        # No match found
+        return jsonify({
+            'error': 'No matching answer found for your question',
+            'question': question,
+            'matched': False,
+            'available_questions': [item['question'] for item in QA_DATA],
+            'suggestions': [
+                'Try using keywords like: AI, artificial intelligence, ML, machine learning',
+                'Rephrase your question to be more specific',
+                'Check the available questions list above'
+            ]
+        }), 404
         
     except Exception as e:
-        logger.error(f"Unexpected error in query endpoint: {e}", exc_info=True)
         return jsonify({
-            'error': 'An unexpected error occurred while processing your query',
+            'error': 'An error occurred while processing your request',
+            'details': str(e),
             'status_code': 500
-        }), 500
-
-
-@api_bp.route('/query/batch', methods=['POST'])
-@monitor_memory
-def batch_query_endpoint():
-    """
-    Batch query endpoint for processing multiple questions at once.
-    Optimized with memory monitoring and efficient batch processing.
-    
-    Expected JSON payload:
-    {
-        "questions": ["question1", "question2", ...],
-        "threshold": 0.7,  // optional
-        "top_k": 3  // optional, number of results per question
-    }
-    
-    Returns:
-        JSON response with results for each question
-    """
-    try:
-        # Validate request
-        if not request.is_json:
-            return jsonify({
-                'error': 'Request must have Content-Type: application/json',
-                'status_code': 400
-            }), 400
-        
-        data = request.get_json()
-        if not data or 'questions' not in data:
-            return jsonify({
-                'error': 'Missing required field: questions',
-                'status_code': 400
-            }), 400
-        
-        questions = data['questions']
-        if not isinstance(questions, list) or not questions:
-            return jsonify({
-                'error': 'Field "questions" must be a non-empty list',
-                'status_code': 400
-            }), 400
-        
-        # Validate questions
-        for i, q in enumerate(questions):
-            if not isinstance(q, str) or not q.strip():
-                return jsonify({
-                    'error': f'Question at index {i} must be a non-empty string',
-                    'status_code': 400
-                }), 400
-        
-        # Get optional parameters
-        custom_threshold = None
-        if 'threshold' in data:
-            try:
-                custom_threshold = ThresholdValidator.get_effective_threshold(data['threshold'])
-            except ValueError as e:
-                return jsonify({
-                    'error': f'Invalid threshold: {str(e)}',
-                    'status_code': 400
-                }), 400
-        
-        top_k = data.get('top_k', 1)
-        if not isinstance(top_k, int) or top_k < 1 or top_k > 10:
-            return jsonify({
-                'error': 'Field "top_k" must be an integer between 1 and 10',
-                'status_code': 400
-            }), 400
-        
-        logger.info(f"Processing batch query with {len(questions)} questions")
-        
-        # Get documents
-        documents = DocumentService.get_questions_for_embedding()
-        if not documents:
-            return jsonify({
-                'error': 'No data available for search',
-                'status_code': 503
-            }), 503
-        
-        # Extract and embed questions with optimized service
-        db_questions = [doc['question'] for doc in documents if 'question' in doc and doc['question'].strip()]
-        valid_documents = [doc for doc in documents if 'question' in doc and doc['question'].strip()]
-        
-        if not db_questions:
-            return jsonify({'error': 'No valid questions in database', 'status_code': 503}), 503
-            
-        document_embeddings = OptimizedEmbeddingService.embed_texts_optimized(db_questions)
-        
-        # Process each question with memory cleanup
-        results = []
-        for i, question in enumerate(questions):
-            try:
-                query_embedding = OptimizedEmbeddingService.embed_text_optimized(question.strip())
-                
-                if top_k == 1:
-                    best_document, similarity_score, best_index = SimilarityCalculator.find_best_match(
-                        query_embedding, document_embeddings, valid_documents, custom_threshold
-                    )
-                    
-                    if best_document:
-                        results.append({
-                            'question_index': i,
-                            'query': question,
-                            'matches': [{
-                                'matched_question': best_document['question'],
-                                'answers': best_document['answers'],
-                                'similarity_score': round(similarity_score, 4),
-                                'document_id': best_document.get('_id')
-                            }]
-                        })
-                    else:
-                        results.append({
-                            'question_index': i,
-                            'query': question,
-                            'matches': [],
-                            'no_match_reason': f'No match above threshold {custom_threshold or current_app.config.get("SIMILARITY_THRESHOLD", 0.6)}'
-                        })
-                else:
-                    top_matches = SimilarityCalculator.get_top_matches(
-                        query_embedding, document_embeddings, valid_documents, top_k, custom_threshold
-                    )
-                    
-                    matches = []
-                    for doc, score, idx in top_matches:
-                        matches.append({
-                            'matched_question': doc['question'],
-                            'answers': doc['answers'],
-                            'similarity_score': round(score, 4),
-                            'document_id': doc.get('_id')
-                        })
-                    
-                    results.append({
-                        'question_index': i,
-                        'query': question,
-                        'matches': matches
-                    })
-                
-                # Force cleanup after each question to manage memory
-                OptimizedEmbeddingService.cleanup_memory()
-                    
-            except Exception as e:
-                logger.error(f"Failed to process question {i}: {e}")
-                results.append({
-                    'question_index': i,
-                    'query': question,
-                    'error': 'Failed to process this question',
-                    'matches': []
-                })
-        
-        return jsonify({
-            'results': results,
-            'metadata': {
-                'total_questions': len(questions),
-                'total_documents_searched': len(valid_documents),
-                'threshold_used': custom_threshold or current_app.config.get('SIMILARITY_THRESHOLD', 0.6),
-                'top_k': top_k,
-                'optimization': 'production-optimized'
-            }
-        }), 200
-        
-    except Exception as e:
-        logger.error(f"Unexpected error in batch query endpoint: {e}", exc_info=True)
-        return jsonify({
-            'error': 'An unexpected error occurred while processing batch query',
-            'status_code': 500
-        }), 500
-    finally:
-        # Final cleanup after batch processing
-        OptimizedEmbeddingService.cleanup_memory()
-
-
-# Error handlers specific to API blueprint
-@api_bp.errorhandler(400)
-def api_bad_request(error):
-    """Handle 400 errors within API blueprint."""
-    return jsonify({
-        'error': 'Bad Request',
-        'message': 'The request could not be understood or was missing required parameters.',
-        'status_code': 400
-    }), 400
-
-
-@api_bp.errorhandler(404)  
-def api_not_found(error):
-    """Handle 404 errors within API blueprint."""
-    return jsonify({
-        'error': 'Not Found',
-        'message': 'The requested endpoint does not exist.',
-        'available_endpoints': ['/health', '/query', '/query/batch'],
-        'status_code': 404
-    }), 404 
+        }), 500 

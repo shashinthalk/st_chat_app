@@ -1,1 +1,1 @@
-# API package 
+# API package for Flask Q&A service 

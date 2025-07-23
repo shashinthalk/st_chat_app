@@ -1,44 +1,39 @@
-# Use official Python runtime as base image
 FROM python:3.10-slim
 
-# Set working directory in container
-WORKDIR /app
-
-# Set environment variables
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-ENV FLASK_APP=app.py
-ENV FLASK_ENV=production
-
 # Install system dependencies
-RUN apt-get update && apt-get install -y \
-    gcc \
-    g++ \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first to leverage Docker cache
+# Create user
+RUN useradd --create-home --shell /bin/bash appuser
+
+# Set working directory
+WORKDIR /app
+
+# Copy requirements and install
 COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Install Python dependencies
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+# Copy application
+COPY --chown=appuser:appuser app/ ./app/
+COPY --chown=appuser:appuser run.py .
+COPY --chown=appuser:appuser gunicorn.conf.py .
 
-# Copy application source code
-COPY app/ ./app/
-COPY run.py .
-COPY gunicorn.conf.py .
-
-# Create non-root user for security
-RUN adduser --disabled-password --gecos '' appuser && \
-    chown -R appuser:appuser /app
+# Switch to non-root user
 USER appuser
 
-# Expose port 5001
+# Environment variables
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV FLASK_ENV=production
+
+# Expose port
 EXPOSE 5001
 
-# Health check - longer intervals for ML workloads
-HEALTHCHECK --interval=60s --timeout=45s --start-period=120s --retries=3 \
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD curl -f http://localhost:5001/health || exit 1
 
-# Run the application with Gunicorn optimized for ML workloads
+# Run application
 CMD ["gunicorn", "--config", "gunicorn.conf.py", "run:app"] 
