@@ -6,10 +6,12 @@ and model context management within the Flask application.
 """
 
 import logging
+import gc
 from typing import List, Optional
 import numpy as np
 from sentence_transformers import SentenceTransformer
 from flask import current_app, g
+import torch
 
 logger = logging.getLogger(__name__)
 
@@ -25,9 +27,22 @@ def init_sentence_model(app):
         model_name = app.config['MODEL_NAME']
         app.logger.info(f"Loading sentence transformer model: {model_name}")
         
-        # Load the model and store in app config
-        model = SentenceTransformer(model_name)
+        # Load the model with optimized settings for production
+        model = SentenceTransformer(model_name, device='cpu')
+        
+        # Optimize model for inference (disable gradients)
+        if hasattr(model, '_modules'):
+            for module in model.modules():
+                if hasattr(module, 'eval'):
+                    module.eval()
+                for param in module.parameters():
+                    param.requires_grad = False
+        
+        # Store model in app config
         app.config['SENTENCE_MODEL'] = model
+        
+        # Force garbage collection after model loading
+        gc.collect()
         
         app.logger.info("Sentence transformer model loaded successfully")
         
@@ -74,7 +89,14 @@ class EmbeddingService:
         
         try:
             model = get_sentence_model()
-            embedding = model.encode([text.strip()])  # Returns array of shape (1, embedding_dim)
+            
+            # Use context manager for memory efficiency
+            with torch.no_grad():
+                embedding = model.encode([text.strip()], show_progress_bar=False)
+            
+            # Force cleanup
+            gc.collect()
+            
             return embedding[0]  # Return single embedding vector
             
         except Exception as e:
@@ -106,9 +128,29 @@ class EmbeddingService:
         
         try:
             model = get_sentence_model()
-            embeddings = model.encode(clean_texts)
+            
+            # Process in batches for memory efficiency
+            batch_size = min(32, len(clean_texts))  # Smaller batches for memory management
+            embeddings = []
+            
+            with torch.no_grad():
+                for i in range(0, len(clean_texts), batch_size):
+                    batch = clean_texts[i:i + batch_size]
+                    batch_embeddings = model.encode(batch, show_progress_bar=False)
+                    embeddings.append(batch_embeddings)
+                    
+                    # Clean up after each batch
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+            
+            # Concatenate all embeddings
+            all_embeddings = np.vstack(embeddings) if len(embeddings) > 1 else embeddings[0]
+            
+            # Force cleanup
+            gc.collect()
+            
             logger.info(f"Generated embeddings for {len(clean_texts)} texts")
-            return embeddings
+            return all_embeddings
             
         except Exception as e:
             logger.error(f"Failed to embed texts: {e}")
@@ -196,9 +238,10 @@ class ModelHealthChecker:
             model = get_sentence_model()
             model_name = current_app.config.get('MODEL_NAME', 'unknown')
             
-            # Try a test embedding to verify model works
+            # Try a lightweight test embedding to verify model works
             try:
-                test_embedding = model.encode(["test"])
+                with torch.no_grad():
+                    test_embedding = model.encode(["test"], show_progress_bar=False)
                 embedding_dim = test_embedding.shape[1] if len(test_embedding.shape) > 1 else len(test_embedding[0])
                 
                 return {

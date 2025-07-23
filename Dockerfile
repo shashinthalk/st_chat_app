@@ -26,6 +26,8 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Copy application source code
 COPY app/ ./app/
 COPY run.py .
+COPY gunicorn.conf.py .
+COPY .env.example .
 
 # Create non-root user for security
 RUN adduser --disabled-password --gecos '' appuser && \
@@ -35,9 +37,9 @@ USER appuser
 # Expose port 5001
 EXPOSE 5001
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=30s --start-period=60s --retries=3 \
+# Health check - longer intervals for ML workloads
+HEALTHCHECK --interval=60s --timeout=45s --start-period=120s --retries=3 \
     CMD curl -f http://localhost:5001/health || exit 1
 
-# Run the application with Gunicorn in production
-CMD ["gunicorn", "--bind", "0.0.0.0:5001", "--workers", "2", "--timeout", "120", "--preload", "run:app"] 
+# Run the application with Gunicorn optimized for ML workloads
+CMD ["gunicorn", "--config", "gunicorn.conf.py", "run:app"] 

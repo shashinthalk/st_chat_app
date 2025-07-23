@@ -12,16 +12,19 @@ import multiprocessing
 bind = "0.0.0.0:5001"
 backlog = 2048
 
-# Worker processes
-workers = multiprocessing.cpu_count() * 2 + 1
+# Worker processes - reduced for memory-intensive ML operations
+workers = 1  # Single worker for memory efficiency with ML models
 worker_class = "sync"
 worker_connections = 1000
-timeout = 120
+timeout = 300  # Increased timeout for model operations
 keepalive = 2
 
-# Restart workers after this many requests, to help prevent memory leaks
-max_requests = 1000
-max_requests_jitter = 100
+# Restart workers after fewer requests due to memory usage
+max_requests = 100
+max_requests_jitter = 50
+
+# Memory management
+worker_tmp_dir = "/dev/shm"  # Use shared memory for temporary files
 
 # Preload application for better performance
 preload_app = True
