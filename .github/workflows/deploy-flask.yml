@@ -1,0 +1,223 @@
+name: Deploy Flask Q&A API
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: Test Flask app creation
+      run: |
+        python -c "from app import create_app; app = create_app(); print('✅ Flask app created successfully')"
+        
+    - name: Test Q&A data loading
+      run: |
+        python -c "from app.data import QA_DATA; print(f'✅ Q&A data loaded: {len(QA_DATA)} items')"
+        
+    - name: Run basic API tests
+      run: |
+        python -c "
+        from app import create_app
+        import json
+        
+        app = create_app()
+        with app.test_client() as client:
+            # Test health endpoint
+            response = client.get('/health')
+            assert response.status_code == 200
+            data = response.get_json()
+            assert data['status'] == 'healthy'
+            print('✅ Health endpoint test passed')
+            
+            # Test query endpoint
+            response = client.post('/query', 
+                                 json={'question': 'What is machine learning?'},
+                                 content_type='application/json')
+            assert response.status_code == 200
+            data = response.get_json()
+            assert data['matched'] == True
+            print('✅ Query endpoint test passed')
+            
+            # Test no match scenario
+            response = client.post('/query',
+                                 json={'question': 'What is cooking?'},
+                                 content_type='application/json') 
+            assert response.status_code == 404
+            data = response.get_json()
+            assert data['matched'] == False
+            print('✅ No match test passed')
+        "
+        
+    - name: Build Docker image
+      run: |
+        docker build -t flask-qa-api:latest .
+        
+    - name: Test Docker image
+      run: |
+        # Start container
+        docker run -d --name test-container -p 5001:5001 flask-qa-api:latest
+        
+        # Wait for startup
+        sleep 15
+        
+        # Test health endpoint
+        curl_response=$(curl -s -w "%{http_code}" http://localhost:5001/health)
+        http_code="${curl_response: -3}"
+        if [ "$http_code" != "200" ]; then
+          echo "❌ Health check failed with status $http_code"
+          docker logs test-container
+          exit 1
+        fi
+        echo "✅ Docker health check passed"
+        
+        # Test query endpoint
+        query_response=$(curl -s -w "%{http_code}" -X POST \
+          -H "Content-Type: application/json" \
+          -d '{"question": "What is AI?"}' \
+          http://localhost:5001/query)
+        query_http_code="${query_response: -3}"
+        if [ "$query_http_code" != "200" ]; then
+          echo "❌ Query test failed with status $query_http_code"
+          docker logs test-container
+          exit 1
+        fi
+        echo "✅ Docker query test passed"
+        
+        # Clean up
+        docker stop test-container
+        docker rm test-container
+        
+    - name: Save Docker image
+      run: |
+        docker save flask-qa-api:latest | gzip > flask-qa-api.tar.gz
+        
+    - name: Transfer Docker image
+      if: github.ref == 'refs/heads/main'
+      uses: appleboy/scp-action@v0.1.4
+      with:
+        host: ${{ secrets.REMOTE_HOST }}
+        username: ${{ secrets.REMOTE_USER }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        timeout: 60s
+        source: "flask-qa-api.tar.gz"
+        target: "/tmp/"
+        
+    - name: Deploy to server
+      if: github.ref == 'refs/heads/main'
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.REMOTE_HOST }}
+        username: ${{ secrets.REMOTE_USER }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        timeout: 60s
+        command_timeout: 10m
+        script: |
+          set -e
+          echo "Starting deployment process..."
+          
+          # Navigate to deployment directory
+          cd /tmp
+          
+          # Load the Docker image
+          echo "Loading Docker image..."
+          docker load < flask-qa-api.tar.gz
+          
+          # Stop and remove existing container if it exists
+          echo "Stopping existing container..."
+          docker stop flask-qa-container 2>/dev/null || echo "No existing container to stop"
+          docker rm flask-qa-container 2>/dev/null || echo "No existing container to remove"
+          
+          # Prune unused Docker images to free up space
+          echo "Pruning unused Docker images..."
+          docker image prune -f
+          
+          # Run new container
+          echo "Starting new container..."
+          docker run -d \
+            --name flask-qa-container \
+            --restart unless-stopped \
+            -p 5001:5001 \
+            flask-qa-api:latest
+            
+          # Clean up tarball
+          echo "Cleaning up deployment files..."
+          rm -f flask-qa-api.tar.gz
+          
+          # Wait for container to start
+          echo "Waiting for container to start..."
+          sleep 10
+          
+          # Check if container is running
+          if ! docker ps | grep -q flask-qa-container; then
+            echo "ERROR: Container failed to start"
+            docker logs flask-qa-container
+            exit 1
+          fi
+          echo "Container started successfully"
+          
+          # Wait a bit more for the Flask app to fully initialize
+          echo "Waiting for Flask app to initialize..."
+          sleep 5
+          
+          # Perform health check
+          echo "Performing health check..."
+          max_attempts=6
+          attempt=1
+          while [ $attempt -le $max_attempts ]; do
+            echo "Health check attempt $attempt/$max_attempts"
+            
+            if curl -f -s http://localhost:5001/health > /dev/null; then
+              echo "Health check passed!"
+              
+              # Get and display health check response
+              health_response=$(curl -s http://localhost:5001/health)
+              echo "Health check response: $health_response"
+              
+              # Test query endpoint
+              echo "Testing query endpoint..."
+              query_response=$(curl -s -X POST -H "Content-Type: application/json" \
+                -d '{"question": "What is machine learning?"}' \
+                http://localhost:5001/query)
+              echo "Query test response: $query_response"
+              
+              echo "Deployment completed successfully!"
+              exit 0
+            fi
+            
+            echo "Health check failed, waiting 10 seconds before retry..."
+            sleep 10
+            attempt=$((attempt + 1))
+          done
+          
+          # If we get here, health check failed
+          echo "ERROR: Health check failed after $max_attempts attempts"
+          echo "Container logs:"
+          docker logs flask-qa-container
+          echo "Container status:"
+          docker ps -a | grep flask-qa-container
+          exit 1
+          
+    - name: Cleanup local artifacts
+      if: always()
+      run: |
+        rm -f flask-qa-api.tar.gz
+        docker rmi flask-qa-api:latest 2>/dev/null || true 

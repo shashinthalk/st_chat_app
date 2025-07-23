@@ -2,55 +2,20 @@
 .git
 .gitignore
 
-# Docker files (keep only what's needed)
-Dockerfile
-Dockerfile.*
-.dockerignore
-docker-compose.yml
-
-# Python cache and build artifacts
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
 .Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-
-# Testing and coverage
-.tox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-.hypothesis/
-.pytest_cache/
-
-# Environments
+*.egg-info
+pip-log.txt
+pip-delete-this-directory.txt
+.tox
 .env
-.env.*
 .venv
-env/
 venv/
-ENV/
-env.bak/
-venv.bak/
+.venv/
 
 # IDE
 .vscode/
@@ -58,8 +23,6 @@ venv.bak/
 *.swp
 *.swo
 *~
-.spyderproject
-.spyproject
 
 # OS
 .DS_Store
@@ -70,27 +33,28 @@ venv.bak/
 ehthumbs.db
 Thumbs.db
 
-# Documentation and configs
-README.md
-*.md
-nginx-config.conf
-.github/
-
 # Logs
 *.log
 logs/
-flask.log
 
-# Temporary files
-*.tmp
-*.temp
-.cache/
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
 
-# Model cache (will be downloaded at runtime)
-.cache/
-.huggingface/
-transformers_cache/
+# Documentation
+*.md
+!README.md
 
-# Build scripts (not needed in container)
-build-*.sh
-deploy-*.sh 
+# Scripts and development files
+build-and-test.sh
+deploy-simple.sh
+DEPLOYMENT.md
+
+# GitHub Actions (not needed in container)
+.github/
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+*.tar.gz 
