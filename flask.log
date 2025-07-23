@@ -1,0 +1,98 @@
+2025-07-23 13:20:00,179 - app - INFO - Connected to MongoDB: mongodb+srv://nishanshashinthalive:NQGLM8NUZcZP5QlY@n8n-automation-data.2ednq1p.mongodb.net/?retryWrites=true&w=majority&appName=n8n-automation-data
+2025-07-23 13:20:00,179 - app - INFO - Loading sentence transformer model: all-MiniLM-L6-v2
+2025-07-23 13:20:00,179 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-23 13:20:00,532 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device: cpu
+2025-07-23 13:20:00,532 - app - INFO - Sentence transformer model loaded successfully
+2025-07-23 13:20:00,534 - app - INFO - Flask application created successfully
+2025-07-23 13:20:00,534 - app - INFO - Starting Flask development server on 0.0.0.0:5001
+2025-07-23 13:20:00,534 - app - INFO - Configuration: development
+2025-07-23 13:20:00,534 - app - INFO - Debug mode: True
+2025-07-23 13:20:00,534 - app - WARNING - WARNING: This is a development server. Use Gunicorn for production.
+ * Serving Flask app 'app'
+ * Debug mode: on
+2025-07-23 13:20:00,581 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5001
+ * Running on http://10.0.0.250:5001
+2025-07-23 13:20:00,582 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-07-23 13:20:00,582 - werkzeug - INFO -  * Restarting with stat
+2025-07-23 13:20:02,348 - app - INFO - Connected to MongoDB: mongodb+srv://nishanshashinthalive:NQGLM8NUZcZP5QlY@n8n-automation-data.2ednq1p.mongodb.net/?retryWrites=true&w=majority&appName=n8n-automation-data
+2025-07-23 13:20:02,348 - app - INFO - Loading sentence transformer model: all-MiniLM-L6-v2
+2025-07-23 13:20:02,348 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-07-23 13:20:02,560 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device: cpu
+2025-07-23 13:20:02,560 - app - INFO - Sentence transformer model loaded successfully
+2025-07-23 13:20:02,561 - app - INFO - Flask application created successfully
+2025-07-23 13:20:02,561 - app - INFO - Starting Flask development server on 0.0.0.0:5001
+2025-07-23 13:20:02,561 - app - INFO - Configuration: development
+2025-07-23 13:20:02,561 - app - INFO - Debug mode: True
+2025-07-23 13:20:02,561 - app - WARNING - WARNING: This is a development server. Use Gunicorn for production.
+2025-07-23 13:20:02,578 - werkzeug - WARNING -  * Debugger is active!
+2025-07-23 13:20:02,586 - werkzeug - INFO -  * Debugger PIN: 630-791-346
+2025-07-23 13:20:17,026 - app.api.routes - INFO - Processing query: 'can u develop kotlin api backend...' with threshold: None
+2025-07-23 13:20:17,069 - app.database.mongodb - INFO - Retrieved 1 documents from MongoDB
+2025-07-23 13:20:17,069 - app.database.mongodb - INFO - Found 1 valid documents for embedding
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|██████████| 1/1 [00:00<00:00,  4.92it/s]Batches: 100%|██████████| 1/1 [00:00<00:00,  4.92it/s]
+2025-07-23 13:20:17,275 - app.models.sentence_model - INFO - Generated embeddings for 1 texts
+2025-07-23 13:20:17,275 - app.models.sentence_model - INFO - Successfully embedded 1 questions from documents
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|██████████| 1/1 [00:00<00:00, 195.42it/s]
+2025-07-23 13:20:17,282 - app.utils.similarity - DEBUG - Calculated similarities for 1 documents
+2025-07-23 13:20:17,282 - app.utils.similarity - INFO - Best match similarity: 1.0000, threshold: 0.6
+2025-07-23 13:20:17,282 - app.utils.similarity - INFO - Found matching document with similarity 1.0000
+2025-07-23 13:20:17,282 - app.api.routes - INFO - Successfully matched query with similarity 1.0000
+2025-07-23 13:20:17,282 - werkzeug - INFO - 127.0.0.1 - - [23/Jul/2025 13:20:17] "POST /query HTTP/1.1" 200 -
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|██████████| 1/1 [00:00<00:00, 169.41it/s]
+2025-07-23 13:20:33,273 - app.database.mongodb - INFO - Retrieved 1 documents from MongoDB
+2025-07-23 13:20:33,273 - werkzeug - INFO - 127.0.0.1 - - [23/Jul/2025 13:20:33] "GET /health HTTP/1.1" 200 -
+2025-07-23 13:20:40,745 - app.api.routes - INFO - Processing query: 'can u develop kotlin api backend...' with threshold: None
+2025-07-23 13:20:40,778 - app.database.mongodb - INFO - Retrieved 1 documents from MongoDB
+2025-07-23 13:20:40,778 - app.database.mongodb - INFO - Found 1 valid documents for embedding
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|██████████| 1/1 [00:00<00:00, 107.41it/s]
+2025-07-23 13:20:40,789 - app.models.sentence_model - INFO - Generated embeddings for 1 texts
+2025-07-23 13:20:40,789 - app.models.sentence_model - INFO - Successfully embedded 1 questions from documents
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|██████████| 1/1 [00:00<00:00, 109.47it/s]
+2025-07-23 13:20:40,800 - app.utils.similarity - DEBUG - Calculated similarities for 1 documents
+2025-07-23 13:20:40,800 - app.utils.similarity - INFO - Best match similarity: 1.0000, threshold: 0.6
+2025-07-23 13:20:40,800 - app.utils.similarity - INFO - Found matching document with similarity 1.0000
+2025-07-23 13:20:40,800 - app.api.routes - INFO - Successfully matched query with similarity 1.0000
+2025-07-23 13:20:40,800 - werkzeug - INFO - 127.0.0.1 - - [23/Jul/2025 13:20:40] "POST /query HTTP/1.1" 200 -
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|██████████| 1/1 [00:00<00:00, 144.09it/s]
+2025-07-23 13:21:20,903 - app.database.mongodb - INFO - Retrieved 1 documents from MongoDB
+2025-07-23 13:21:20,904 - werkzeug - INFO - 127.0.0.1 - - [23/Jul/2025 13:21:20] "GET /health HTTP/1.1" 200 -
+2025-07-23 13:22:04,065 - app.api.routes - INFO - Processing query: 'can u develop kotlin api backend...' with threshold: None
+2025-07-23 13:22:04,092 - app.database.mongodb - INFO - Retrieved 1 documents from MongoDB
+2025-07-23 13:22:04,093 - app.database.mongodb - INFO - Found 1 valid documents for embedding
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|██████████| 1/1 [00:00<00:00, 112.75it/s]
+2025-07-23 13:22:04,105 - app.models.sentence_model - INFO - Generated embeddings for 1 texts
+2025-07-23 13:22:04,105 - app.models.sentence_model - INFO - Successfully embedded 1 questions from documents
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|██████████| 1/1 [00:00<00:00, 132.17it/s]
+2025-07-23 13:22:04,115 - app.utils.similarity - DEBUG - Calculated similarities for 1 documents
+2025-07-23 13:22:04,115 - app.utils.similarity - INFO - Best match similarity: 1.0000, threshold: 0.6
+2025-07-23 13:22:04,115 - app.utils.similarity - INFO - Found matching document with similarity 1.0000
+2025-07-23 13:22:04,115 - app.api.routes - INFO - Successfully matched query with similarity 1.0000
+2025-07-23 13:22:04,115 - werkzeug - INFO - 127.0.0.1 - - [23/Jul/2025 13:22:04] "POST /query HTTP/1.1" 200 -
+2025-07-23 13:22:05,597 - app.api.routes - INFO - Processing query: 'can u develop kotlin api backend...' with threshold: None
+2025-07-23 13:22:05,624 - app.database.mongodb - INFO - Retrieved 1 documents from MongoDB
+2025-07-23 13:22:05,624 - app.database.mongodb - INFO - Found 1 valid documents for embedding
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|██████████| 1/1 [00:00<00:00, 65.05it/s]
+2025-07-23 13:22:05,643 - app.models.sentence_model - INFO - Generated embeddings for 1 texts
+2025-07-23 13:22:05,643 - app.models.sentence_model - INFO - Successfully embedded 1 questions from documents
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|██████████| 1/1 [00:00<00:00, 131.47it/s]
+2025-07-23 13:22:05,652 - app.utils.similarity - DEBUG - Calculated similarities for 1 documents
+2025-07-23 13:22:05,652 - app.utils.similarity - INFO - Best match similarity: 1.0000, threshold: 0.6
+2025-07-23 13:22:05,652 - app.utils.similarity - INFO - Found matching document with similarity 1.0000
+2025-07-23 13:22:05,652 - app.api.routes - INFO - Successfully matched query with similarity 1.0000
+2025-07-23 13:22:05,653 - werkzeug - INFO - 127.0.0.1 - - [23/Jul/2025 13:22:05] "POST /query HTTP/1.1" 200 -
+2025-07-23 13:22:18,371 - app.api.routes - INFO - Processing query: 'can u develop kotlin api backend...' with threshold: None
+2025-07-23 13:22:18,396 - app.database.mongodb - INFO - Retrieved 1 documents from MongoDB
+2025-07-23 13:22:18,397 - app.database.mongodb - INFO - Found 1 valid documents for embedding
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|██████████| 1/1 [00:00<00:00, 72.45it/s]
+2025-07-23 13:22:18,413 - app.models.sentence_model - INFO - Generated embeddings for 1 texts
+2025-07-23 13:22:18,413 - app.models.sentence_model - INFO - Successfully embedded 1 questions from documents
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|██████████| 1/1 [00:00<00:00, 145.99it/s]
+2025-07-23 13:22:18,421 - app.utils.similarity - DEBUG - Calculated similarities for 1 documents
+2025-07-23 13:22:18,421 - app.utils.similarity - INFO - Best match similarity: 1.0000, threshold: 0.6
+2025-07-23 13:22:18,421 - app.utils.similarity - INFO - Found matching document with similarity 1.0000
+2025-07-23 13:22:18,421 - app.api.routes - INFO - Successfully matched query with similarity 1.0000
+2025-07-23 13:22:18,421 - werkzeug - INFO - 127.0.0.1 - - [23/Jul/2025 13:22:18] "POST /query HTTP/1.1" 200 -
+/Users/nishanshashintha/.pyenv/versions/3.11.8/lib/python3.11/multiprocessing/resource_tracker.py:254: UserWarning: resource_tracker: There appear to be 2 leaked semaphore objects to clean up at shutdown
+  warnings.warn('resource_tracker: There appear to be %d '
