@@ -32,8 +32,9 @@ def create_app(config_class=Config):
     # Initialize database connection
     init_db(app)
     
-    # Initialize sentence transformer model
-    init_sentence_model(app)
+    # Initialize sentence transformer model with minimal setup
+    from app.models.sentence_model_minimal import init_sentence_model_minimal
+    init_sentence_model_minimal(app)
     
     # Register blueprints
     from app.api.routes import api_bp

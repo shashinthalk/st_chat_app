@@ -16,7 +16,7 @@ backlog = 2048
 workers = 1  # Single worker for memory efficiency with ML models
 worker_class = "sync"
 worker_connections = 1000
-timeout = 120  # Further reduced timeout with ultra-lightweight model
+timeout = 600  # Extended timeout for first request processing with model files
 keepalive = 2
 
 # Restart workers after fewer requests due to memory usage

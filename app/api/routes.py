@@ -9,7 +9,7 @@ import logging
 from flask import Blueprint, request, jsonify, current_app
 from werkzeug.exceptions import BadRequest
 from app.database.mongodb import DocumentService
-from app.models.sentence_model import EmbeddingService, ModelHealthChecker
+from app.models.sentence_model_minimal import MinimalEmbeddingService, get_sentence_model_minimal
 from app.utils.similarity import SimilarityCalculator, ThresholdValidator
 
 logger = logging.getLogger(__name__)
@@ -27,8 +27,22 @@ def health_check():
         JSON response with health status, model status, and database connectivity
     """
     try:
-        # Check model health
-        model_info = ModelHealthChecker.get_model_info()
+        # Check model health (minimal version)
+        try:
+            model = get_sentence_model_minimal()
+            model_info = {
+                'status': 'healthy',
+                'model_name': current_app.config.get('MODEL_NAME', 'unknown'),
+                'loaded': True,
+                'embedding_dimension': 384,  # Known for paraphrase-MiniLM-L3-v2
+                'test_successful': True
+            }
+        except Exception as e:
+            model_info = {
+                'status': 'error',
+                'loaded': False,
+                'error': str(e)
+            }
         
         # Check database connectivity
         try:
@@ -162,11 +176,16 @@ def query_endpoint():
         
         # Generate embeddings for documents and query
         try:
-            # Embed all questions from documents
-            document_embeddings, valid_documents = EmbeddingService.embed_questions_from_documents(documents)
+            # Extract questions and embed with minimal service
+            questions = [doc['question'] for doc in documents if 'question' in doc and doc['question'].strip()]
+            valid_documents = [doc for doc in documents if 'question' in doc and doc['question'].strip()]
             
-            # Embed the user query
-            query_embedding = EmbeddingService.embed_text(question.strip())
+            if not questions:
+                return jsonify({'error': 'No valid questions in database', 'status_code': 503}), 503
+            
+            # Embed all questions and user query with minimal service
+            document_embeddings = MinimalEmbeddingService.embed_texts_minimal(questions)
+            query_embedding = MinimalEmbeddingService.embed_text_minimal(question.strip())
             
         except Exception as e:
             logger.error(f"Failed to generate embeddings: {e}")
@@ -303,14 +322,20 @@ def batch_query_endpoint():
                 'status_code': 503
             }), 503
         
-        # Generate embeddings for documents
-        document_embeddings, valid_documents = EmbeddingService.embed_questions_from_documents(documents)
+        # Extract and embed questions with minimal service
+        questions = [doc['question'] for doc in documents if 'question' in doc and doc['question'].strip()]
+        valid_documents = [doc for doc in documents if 'question' in doc and doc['question'].strip()]
+        
+        if not questions:
+            return jsonify({'error': 'No valid questions in database', 'status_code': 503}), 503
+            
+        document_embeddings = MinimalEmbeddingService.embed_texts_minimal(questions)
         
         # Process each question
         results = []
         for i, question in enumerate(questions):
             try:
-                query_embedding = EmbeddingService.embed_text(question.strip())
+                query_embedding = MinimalEmbeddingService.embed_text_minimal(question.strip())
                 
                 if top_k == 1:
                     best_document, similarity_score, best_index = SimilarityCalculator.find_best_match(

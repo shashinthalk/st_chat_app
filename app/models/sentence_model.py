@@ -27,8 +27,12 @@ def init_sentence_model(app):
         model_name = app.config['MODEL_NAME']
         app.logger.info(f"Loading sentence transformer model: {model_name}")
         
-        # Load the model with optimized settings for production
-        model = SentenceTransformer(model_name, device='cpu')
+        # Load the model with optimized settings for production - only PyTorch format
+        import os
+        os.environ['SENTENCE_TRANSFORMERS_HOME'] = '/tmp/sentence_transformers'
+        os.environ['TRANSFORMERS_OFFLINE'] = '0'  # Allow online download but optimize
+        
+        model = SentenceTransformer(model_name, device='cpu', cache_folder='/tmp/sentence_transformers')
         
         # Optimize model for inference (disable gradients)
         if hasattr(model, '_modules'):
