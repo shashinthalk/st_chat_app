@@ -26,7 +26,6 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Copy application source code
 COPY app/ ./app/
 COPY run.py .
-COPY .env.example .
 
 # Create non-root user for security
 RUN adduser --disabled-password --gecos '' appuser && \
