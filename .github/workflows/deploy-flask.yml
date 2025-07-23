@@ -30,8 +30,8 @@ jobs:
     - name: Copy tarball to remote server
       uses: appleboy/scp-action@v0.1.4
       with:
-        host: ${{ secrets.USERNAME }}
-        username: ${{ secrets.SERVER_IP }}
+        host: ${{ secrets.SERVER_IP }}
+        username: ${{ secrets.USERNAME }}
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         source: "sentence-transformer-flask.tar.gz"
         target: "/tmp/"
