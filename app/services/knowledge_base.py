@@ -7,10 +7,11 @@ import time
 logger = logging.getLogger(__name__)
 
 class KnowledgeBaseService:
-    """Service to interact with the external knowledge base API"""
+    """Service to interact with the external knowledge base API and transformer model"""
     
     def __init__(self):
         self.api_url = "https://n8n.shashinthalk.cc/webhook/fetch-knowledge-base-data"
+        self.transformer_url = "http://95.111.228.138:5002/query"
         self.jwt_token = "a>6rj{pvGUpdaZfy$(#2Ss)"
         self.headers = {
             "Authorization": f"Bearer {self.jwt_token}",
@@ -230,80 +231,149 @@ class KnowledgeBaseService:
         self.last_cache_time = time.time()
         return self.mock_data
     
+    def get_questions_dataset(self) -> List[str]:
+        """Extract all questions from knowledge base to create dataset for transformer model"""
+        knowledge_data = self.fetch_knowledge_base(use_mock=False)
+        
+        if not knowledge_data:
+            logger.warning("No knowledge base data available for dataset creation")
+            return []
+        
+        questions = []
+        for entry in knowledge_data:
+            if entry.get('question'):
+                questions.append(entry['question'])
+        
+        logger.info(f"Created dataset with {len(questions)} questions")
+        return questions
+    
+    def query_transformer_model(self, user_question: str, dataset: List[str]) -> Optional[str]:
+        """
+        Query the transformer model to find the best matching question
+        Returns the matched question from dataset or None if no match
+        """
+        if not user_question or not dataset:
+            return None
+        
+        try:
+            payload = {
+                "question": user_question,
+                "dataset": dataset
+            }
+            
+            logger.info(f"Querying transformer model with question: {user_question}")
+            logger.info(f"Dataset size: {len(dataset)}")
+            
+            response = requests.post(
+                self.transformer_url,
+                json=payload,
+                headers={"Content-Type": "application/json"},
+                timeout=self.timeout
+            )
+            
+            logger.info(f"Transformer model response status: {response.status_code}")
+            
+            # Handle both 200 and 404 responses as the model may return 404 for no match
+            if response.status_code in [200, 404]:
+                result = response.json()
+                logger.info(f"Transformer model response: {result}")
+                
+                # Handle the actual response format from your transformer model
+                if isinstance(result, dict):
+                    confidence_score = result.get('score', 0)
+                    
+                    # Set a confidence threshold (adjust as needed)
+                    confidence_threshold = 0.5
+                    
+                    # Handle two different response formats:
+                    # Format 1: {"result": "Not found", "score": 0.2} - for no match
+                    # Format 2: {"match": "matched question", "score": 0.7} - for match found
+                    
+                    matched_result = None
+                    if 'match' in result:
+                        # Format 2: Match found
+                        matched_result = result.get('match')
+                        logger.info(f"Transformer found match: {matched_result}, score: {confidence_score}")
+                    elif 'result' in result:
+                        # Format 1: Check if it's not "Not found"
+                        result_value = result.get('result')
+                        if result_value and result_value != "Not found":
+                            matched_result = result_value
+                        logger.info(f"Transformer result: {result_value}, score: {confidence_score}")
+                    
+                    # Validate the match
+                    if (matched_result and 
+                        confidence_score >= confidence_threshold and
+                        matched_result in dataset):
+                        logger.info(f"Transformer model matched: {matched_result} (score: {confidence_score})")
+                        return matched_result
+                    else:
+                        logger.info(f"Transformer model: No confident match found (result: {matched_result}, score: {confidence_score}, threshold: {confidence_threshold})")
+                        return None
+                
+                logger.warning(f"Transformer model returned unexpected format: {result}")
+                return None
+            
+            else:
+                logger.error(f"Transformer model request failed with status {response.status_code}: {response.text}")
+                return None
+                
+        except requests.exceptions.Timeout:
+            logger.error(f"Transformer model request timed out after {self.timeout} seconds")
+            return None
+            
+        except requests.exceptions.ConnectionError:
+            logger.error("Failed to connect to transformer model")
+            return None
+            
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Transformer model request failed: {str(e)}")
+            return None
+            
+        except ValueError as e:
+            logger.error(f"Failed to parse transformer model response: {str(e)}")
+            return None
+            
+        except Exception as e:
+            logger.error(f"Unexpected error querying transformer model: {str(e)}")
+            return None
+    
     def search_knowledge_base(self, question: str) -> Optional[Dict]:
         """
-        Search for a matching question in the knowledge base
+        Search for a matching question using the transformer model
         Returns the best match or None if no match found
         """
         if not question or not question.strip():
             return None
         
-        # Try API first, then fallback to mock if needed
+        # Get knowledge base data and create dataset
         knowledge_data = self.fetch_knowledge_base(use_mock=False)
         
         if not knowledge_data:
             logger.warning("No knowledge base data available for search")
             return None
         
-        question_lower = question.strip().lower()
+        # Extract questions for dataset
+        dataset = self.get_questions_dataset()
         
-        # Keywords for smart matching
-        ai_keywords = ['ai', 'artificial intelligence', 'artificial', 'intelligence']
-        ml_keywords = ['ml', 'machine learning', 'machine', 'learning']
-        kotlin_keywords = ['kotlin', 'api', 'backend', 'development', 'develop']
-        about_keywords = ['about', 'yourself', 'who are you', 'tell me about', 'self']
-        education_keywords = ['education', 'career', 'experience', 'background']
-        design_keywords = ['design', 'photo', 'image', 'graphic']
+        if not dataset:
+            logger.warning("No questions available in dataset")
+            return None
         
-        # Direct matching first
-        for entry in knowledge_data:
-            if not entry.get('question'):
-                continue
-                
-            entry_question_lower = entry['question'].lower()
-            
-            # Exact match
-            if question_lower == entry_question_lower:
-                logger.info(f"Found exact match for: {question}")
-                return entry
-            
-            # Substring match
-            if question_lower in entry_question_lower or entry_question_lower in question_lower:
-                logger.info(f"Found substring match for: {question}")
-                return entry
+        # Query transformer model
+        matched_question = self.query_transformer_model(question.strip(), dataset)
         
-        # Smart keyword matching
-        for entry in knowledge_data:
-            if not entry.get('question'):
-                continue
-                
-            entry_question_lower = entry['question'].lower()
+        if matched_question:
+            # Find the corresponding entry in knowledge base
+            for entry in knowledge_data:
+                if entry.get('question') == matched_question:
+                    logger.info(f"Found knowledge base entry for matched question: {matched_question}")
+                    return entry
             
-            # About/self questions
-            if (any(keyword in question_lower for keyword in about_keywords) and 
-                any(keyword in entry_question_lower for keyword in about_keywords)):
-                logger.info(f"Found 'about' keyword match for: {question}")
-                return entry
-            
-            # Education/career questions
-            if (any(keyword in question_lower for keyword in education_keywords) and 
-                any(keyword in entry_question_lower for keyword in education_keywords)):
-                logger.info(f"Found 'education' keyword match for: {question}")
-                return entry
-            
-            # Kotlin/development questions
-            if (any(keyword in question_lower for keyword in kotlin_keywords) and 
-                any(keyword in entry_question_lower for keyword in kotlin_keywords)):
-                logger.info(f"Found 'kotlin' keyword match for: {question}")
-                return entry
-            
-            # Design questions
-            if (any(keyword in question_lower for keyword in design_keywords) and 
-                any(keyword in entry_question_lower for keyword in design_keywords)):
-                logger.info(f"Found 'design' keyword match for: {question}")
-                return entry
+            logger.warning(f"Matched question not found in knowledge base: {matched_question}")
+            return None
         
-        logger.info(f"No match found for question: {question}")
+        logger.info(f"No match found by transformer model for question: {question}")
         return None
     
     def get_cache_info(self) -> Dict:
@@ -345,6 +415,62 @@ class KnowledgeBaseService:
                 'success': False,
                 'response_text': None,
                 'headers': {},
+                'error': str(e)
+            }
+    
+    def test_transformer_model(self, test_question: str = "What is machine learning?") -> Dict:
+        """Test the transformer model connection"""
+        try:
+            dataset = self.get_questions_dataset()
+            if not dataset:
+                return {
+                    'success': False,
+                    'error': 'No dataset available for testing',
+                    'response': None
+                }
+            
+            payload = {
+                "question": test_question,
+                "dataset": dataset
+            }
+            
+            response = requests.post(
+                self.transformer_url,
+                json=payload,
+                headers={"Content-Type": "application/json"},
+                timeout=self.timeout
+            )
+            
+            # Consider both 200 and 404 as valid responses from the transformer model
+            is_success = response.status_code in [200, 404]
+            response_data = None
+            
+            if is_success:
+                try:
+                    response_data = response.json()
+                except:
+                    response_data = response.text
+            else:
+                response_data = response.text
+            
+            return {
+                'success': is_success,
+                'status_code': response.status_code,
+                'response': response_data,
+                'dataset_size': len(dataset),
+                'test_question': test_question,
+                'dataset_preview': dataset[:3],  # Show first 3 questions for debugging
+                'error': None if is_success else f"HTTP {response.status_code}"
+            }
+            
+        except Exception as e:
+            return {
+                'success': False,
+                'status_code': None,
+                'response': None,
+                'dataset_size': 0,
+                'test_question': test_question,
+                'dataset_preview': [],
                 'error': str(e)
             }
 

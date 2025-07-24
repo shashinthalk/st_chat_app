@@ -13,7 +13,7 @@ api_bp = Blueprint('api', __name__)
 
 @api_bp.route('/health', methods=['GET'])
 def health_check():
-    """Health check endpoint with knowledge base status"""
+    """Health check endpoint with knowledge base and transformer model status"""
     try:
         # Get cache info
         cache_info = knowledge_service.get_cache_info()
@@ -30,24 +30,32 @@ def health_check():
         else:
             api_status = "disconnected"
         
+        # Get dataset info
+        dataset = knowledge_service.get_questions_dataset()
+        dataset_size = len(dataset)
+        
         return jsonify({
             'status': 'healthy',
-            'message': 'Flask Q&A API is running',
-            'available_endpoints': ['/health', '/query', '/cache/info', '/cache/clear', '/test-api'],
+            'message': 'Flask Q&A API with AI-powered matching is running',
+            'available_endpoints': ['/health', '/query', '/cache/info', '/cache/clear', '/test-api', '/test-transformer'],
             'knowledge_base': {
                 'status': api_status,
                 'data_count': data_count,
                 'cache_info': cache_info
             },
-            'api_url': 'External Knowledge Base API (with fallback)'
+            'transformer_model': {
+                'url': knowledge_service.transformer_url,
+                'dataset_size': dataset_size
+            },
+            'api_url': 'External Knowledge Base API (with AI matching fallback)'
         }), 200
         
     except Exception as e:
         logger.error(f"Health check failed: {str(e)}")
         return jsonify({
             'status': 'healthy',
-            'message': 'Flask Q&A API is running',
-            'available_endpoints': ['/health', '/query', '/cache/info', '/cache/clear', '/test-api'],
+            'message': 'Flask Q&A API with AI-powered matching is running',
+            'available_endpoints': ['/health', '/query', '/cache/info', '/cache/clear', '/test-api', '/test-transformer'],
             'knowledge_base': {
                 'status': 'error',
                 'error': str(e)
@@ -56,7 +64,7 @@ def health_check():
 
 @api_bp.route('/query', methods=['POST'])
 def query_endpoint():
-    """Query endpoint using external knowledge base API - returns answer content directly"""
+    """Query endpoint using AI transformer model for intelligent question matching"""
     try:
         # Validate request
         if not request.is_json:
@@ -79,8 +87,8 @@ def query_endpoint():
                 'status_code': 400
             }), 400
         
-        # Search knowledge base
-        logger.info(f"Processing query: {question}")
+        # Search knowledge base using AI transformer model
+        logger.info(f"Processing query with AI model: {question}")
         match = knowledge_service.search_knowledge_base(question)
         
         if match:
@@ -97,7 +105,7 @@ def query_endpoint():
                 'callToAction': answers.get('callToAction', {})
             }
             
-            logger.info(f"Found match for: {question}")
+            logger.info(f"AI model found match for: {question}")
             return jsonify(response_data), 200
         
         else:
@@ -113,13 +121,13 @@ def query_endpoint():
                 'suggestions': [
                     'Try asking about Kotlin development, career experience, or personal background',
                     'Ask "can u develop kotlin api backend" or "tell me about yourself"',
-                    'Check the available questions list above for inspiration'
+                    'The AI model analyzes your question against the knowledge base'
                 ],
                 'total_available': len(available_questions),
-                'data_source': knowledge_service.get_cache_info().get('cache_status', 'unknown')
+                'matching_method': 'AI Transformer Model'
             }
             
-            logger.info(f"No match found for: {question}")
+            logger.info(f"AI model found no match for: {question}")
             return jsonify(response_data), 404
             
     except Exception as e:
@@ -135,8 +143,11 @@ def cache_info():
     """Get information about the knowledge base cache"""
     try:
         cache_info = knowledge_service.get_cache_info()
+        dataset_size = len(knowledge_service.get_questions_dataset())
+        
         return jsonify({
             'cache_status': cache_info,
+            'dataset_size': dataset_size,
             'message': 'Cache information retrieved successfully'
         }), 200
     except Exception as e:
@@ -177,5 +188,30 @@ def test_api():
         logger.error(f"Failed to test API: {str(e)}")
         return jsonify({
             'error': 'Failed to test API connection',
+            'status_code': 500
+        }), 500
+
+@api_bp.route('/test-transformer', methods=['GET', 'POST'])
+def test_transformer():
+    """Test the transformer model connection"""
+    try:
+        # Get test question from request if provided
+        test_question = "What is machine learning?"
+        if request.is_json:
+            data = request.get_json()
+            test_question = data.get('question', test_question)
+        elif request.args.get('question'):
+            test_question = request.args.get('question')
+        
+        test_result = knowledge_service.test_transformer_model(test_question)
+        return jsonify({
+            'message': 'Transformer model test completed',
+            'test_result': test_result,
+            'transformer_url': knowledge_service.transformer_url
+        }), 200
+    except Exception as e:
+        logger.error(f"Failed to test transformer model: {str(e)}")
+        return jsonify({
+            'error': 'Failed to test transformer model',
             'status_code': 500
         }), 500 
