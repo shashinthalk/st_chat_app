@@ -23,10 +23,10 @@ def health_check():
         data_count = len(knowledge_data) if knowledge_data else 0
         
         # Determine API status
-        if cache_info.get('cache_status') == 'success':
+        if cache_info.get('cache_status') == 'success' and data_count > 0:
             api_status = "connected"
-        elif cache_info.get('cache_status') in ['fallback', 'mock']:
-            api_status = "fallback_mode"
+        elif cache_info.get('cache_status') == 'success' and data_count == 0:
+            api_status = "connected_but_empty"
         else:
             api_status = "disconnected"
         
@@ -47,7 +47,7 @@ def health_check():
                 'url': knowledge_service.transformer_url,
                 'dataset_size': dataset_size
             },
-            'api_url': 'External Knowledge Base API (with AI matching fallback)'
+            'api_url': 'External Knowledge Base API (no fallback)'
         }), 200
         
     except Exception as e:
@@ -87,6 +87,22 @@ def query_endpoint():
                 'status_code': 400
             }), 400
         
+        # Check if knowledge base has data
+        knowledge_data = knowledge_service.fetch_knowledge_base()
+        if not knowledge_data:
+            return jsonify({
+                'error': 'Knowledge base is currently unavailable',
+                'question': question,
+                'matched': False,
+                'message': 'The external knowledge base API is not accessible or returned no data',
+                'suggestions': [
+                    'Please try again later',
+                    'Contact administrator if the issue persists'
+                ],
+                'api_status': 'disconnected',
+                'matching_method': 'AI Transformer Model'
+            }), 503
+        
         # Search knowledge base using AI transformer model
         logger.info(f"Processing query with AI model: {question}")
         match = knowledge_service.search_knowledge_base(question)
@@ -110,7 +126,6 @@ def query_endpoint():
         
         else:
             # No match found - get available questions for suggestions
-            knowledge_data = knowledge_service.fetch_knowledge_base()
             available_questions = [item.get('question', '') for item in knowledge_data if item.get('question')]
             
             response_data = {
@@ -119,8 +134,8 @@ def query_endpoint():
                 'matched': False,
                 'available_questions': available_questions[:5],  # Limit to first 5
                 'suggestions': [
-                    'Try asking about Kotlin development, career experience, or personal background',
-                    'Ask "can u develop kotlin api backend" or "tell me about yourself"',
+                    'Try rephrasing your question',
+                    'Ask about topics covered in the knowledge base',
                     'The AI model analyzes your question against the knowledge base'
                 ],
                 'total_available': len(available_questions),
@@ -148,7 +163,8 @@ def cache_info():
         return jsonify({
             'cache_status': cache_info,
             'dataset_size': dataset_size,
-            'message': 'Cache information retrieved successfully'
+            'message': 'Cache information retrieved successfully',
+            'data_source': 'External API only (no fallback)'
         }), 200
     except Exception as e:
         logger.error(f"Failed to get cache info: {str(e)}")
@@ -164,7 +180,8 @@ def clear_cache():
         knowledge_service.clear_cache()
         return jsonify({
             'message': 'Cache cleared successfully',
-            'status': 'success'
+            'status': 'success',
+            'note': 'Next request will fetch fresh data from external API'
         }), 200
     except Exception as e:
         logger.error(f"Failed to clear cache: {str(e)}")
@@ -182,7 +199,8 @@ def test_api():
             'message': 'API connection test completed',
             'test_result': test_result,
             'api_url': knowledge_service.api_url,
-            'jwt_token_length': len(knowledge_service.jwt_token)
+            'jwt_token_length': len(knowledge_service.jwt_token),
+            'note': 'This is the only data source - no fallback available'
         }), 200
     except Exception as e:
         logger.error(f"Failed to test API: {str(e)}")
@@ -207,7 +225,8 @@ def test_transformer():
         return jsonify({
             'message': 'Transformer model test completed',
             'test_result': test_result,
-            'transformer_url': knowledge_service.transformer_url
+            'transformer_url': knowledge_service.transformer_url,
+            'note': 'Requires external API data for dataset creation'
         }), 200
     except Exception as e:
         logger.error(f"Failed to test transformer model: {str(e)}")

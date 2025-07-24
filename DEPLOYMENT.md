@@ -217,18 +217,9 @@ curl -X POST -H "Content-Type: application/json" \
 
 ## 📝 Adding More Q&A Data
 
-The API now uses AI-powered matching with an external transformer model at `http://95.111.228.138:5002/query`. Fallback data is available in `app/data.py`:
+The API uses AI-powered matching with an external transformer model at `http://95.111.228.138:5002/query` and fetches all Q&A data from the external knowledge base API at `https://n8n.shashinthalk.cc/webhook/fetch-knowledge-base-data`.
 
-```python
-FALLBACK_QA_DATA = [
-    {
-        "question": "What is machine learning?",
-        "answer": "Machine learning is a subset of artificial intelligence..."
-    },
-    {
-        "question": "What is artificial intelligence?", 
-        "answer": "Artificial Intelligence (AI) is a branch of computer science..."
-    },
+No mock data is used - the system relies entirely on the external API for knowledge base data.,
     # Add your questions here:
     {
         "question": "Your new question?",
