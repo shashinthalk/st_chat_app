@@ -2,6 +2,7 @@ import requests
 import logging
 from typing import List, Dict, Optional
 import time
+import os
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -12,7 +13,10 @@ class KnowledgeBaseService:
     def __init__(self):
         self.api_url = "https://n8n.shashinthalk.cc/webhook/fetch-knowledge-base-data"
         self.transformer_url = "http://95.111.228.138:5002/query"
-        self.jwt_token = "a>6rj{pvGUpdaZfy$(#2Ss)"
+        
+        # Try to get JWT token from environment variable first, then fallback to hardcoded
+        self.jwt_token = os.getenv('KNOWLEDGE_BASE_JWT_TOKEN', 'a>6rj{pvGUpdaZfy$(#2Ss)')
+        
         self.headers = {
             "Authorization": f"Bearer {self.jwt_token}",
             "Content-Type": "application/json",
@@ -43,6 +47,7 @@ class KnowledgeBaseService:
         
         try:
             logger.info(f"Fetching knowledge base data from {self.api_url}")
+            logger.debug(f"Using JWT token (first 10 chars): {self.jwt_token[:10]}...")
             
             response = requests.get(
                 self.api_url,
@@ -52,6 +57,7 @@ class KnowledgeBaseService:
             
             # Log response details for debugging
             logger.info(f"API Response Status: {response.status_code}")
+            logger.debug(f"API Response Headers: {dict(response.headers)}")
             
             if response.status_code == 200:
                 data = response.json()
@@ -74,10 +80,15 @@ class KnowledgeBaseService:
             
             elif response.status_code == 401:
                 logger.error("Authentication failed - invalid JWT token")
+                logger.error(f"Response: {response.text}")
+                logger.info("Hint: Check if KNOWLEDGE_BASE_JWT_TOKEN environment variable is set correctly")
                 return []
             
             elif response.status_code == 403:
                 logger.error(f"Forbidden - JWT token issue: {response.text}")
+                logger.error(f"Current token (first 10 chars): {self.jwt_token[:10]}...")
+                logger.info("Hint: The JWT token may be malformed or expired. Please check the token format.")
+                logger.info("You can set KNOWLEDGE_BASE_JWT_TOKEN environment variable with the correct token")
                 return []
             
             elif response.status_code == 404:
@@ -94,6 +105,7 @@ class KnowledgeBaseService:
             
         except requests.exceptions.ConnectionError:
             logger.error("Failed to connect to knowledge base API")
+            logger.error("Please check your internet connection and API URL")
             return []
             
         except requests.exceptions.RequestException as e:
@@ -107,6 +119,37 @@ class KnowledgeBaseService:
         except Exception as e:
             logger.error(f"Unexpected error fetching knowledge base: {str(e)}")
             return []
+    
+    def test_with_token(self, test_token: str) -> Dict:
+        """Test the API with a specific token (for debugging)"""
+        test_headers = {
+            "Authorization": f"Bearer {test_token}",
+            "Content-Type": "application/json",
+            "User-Agent": "Flask-QA-API/1.0"
+        }
+        
+        try:
+            response = requests.get(
+                self.api_url,
+                headers=test_headers,
+                timeout=self.timeout
+            )
+            
+            return {
+                'token_preview': f"{test_token[:10]}...",
+                'status_code': response.status_code,
+                'success': response.status_code == 200,
+                'response_preview': response.text[:200],
+                'headers': dict(response.headers),
+                'data_count': len(response.json()) if response.status_code == 200 else 0
+            }
+            
+        except Exception as e:
+            return {
+                'token_preview': f"{test_token[:10]}...",
+                'success': False,
+                'error': str(e)
+            }
     
     def get_questions_dataset(self) -> List[str]:
         """Extract all questions from knowledge base to create dataset for transformer model"""
@@ -283,7 +326,9 @@ class KnowledgeBaseService:
                 'success': response.status_code == 200,
                 'response_text': response.text[:200],
                 'headers': dict(response.headers),
-                'error': None
+                'error': None,
+                'token_preview': f"{self.jwt_token[:10]}...",
+                'auth_header': f"Bearer {self.jwt_token[:10]}..."
             }
             
         except Exception as e:
@@ -292,7 +337,9 @@ class KnowledgeBaseService:
                 'success': False,
                 'response_text': None,
                 'headers': {},
-                'error': str(e)
+                'error': str(e),
+                'token_preview': f"{self.jwt_token[:10]}...",
+                'auth_header': f"Bearer {self.jwt_token[:10]}..."
             }
     
     def test_transformer_model(self, test_question: str = "What is machine learning?") -> Dict:

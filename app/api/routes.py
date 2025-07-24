@@ -34,14 +34,24 @@ def health_check():
         dataset = knowledge_service.get_questions_dataset()
         dataset_size = len(dataset)
         
+        # Add debugging info for JWT issues
+        debug_info = {}
+        if api_status == "disconnected":
+            debug_info = {
+                'jwt_token_preview': f"{knowledge_service.jwt_token[:10]}...",
+                'api_url': knowledge_service.api_url,
+                'hint': 'If JWT token is malformed, set KNOWLEDGE_BASE_JWT_TOKEN environment variable'
+            }
+        
         return jsonify({
             'status': 'healthy',
             'message': 'Flask Q&A API with AI-powered matching is running',
-            'available_endpoints': ['/health', '/query', '/cache/info', '/cache/clear', '/test-api', '/test-transformer'],
+            'available_endpoints': ['/health', '/query', '/cache/info', '/cache/clear', '/test-api', '/test-transformer', '/debug/test-token'],
             'knowledge_base': {
                 'status': api_status,
                 'data_count': data_count,
-                'cache_info': cache_info
+                'cache_info': cache_info,
+                **debug_info
             },
             'transformer_model': {
                 'url': knowledge_service.transformer_url,
@@ -55,7 +65,7 @@ def health_check():
         return jsonify({
             'status': 'healthy',
             'message': 'Flask Q&A API with AI-powered matching is running',
-            'available_endpoints': ['/health', '/query', '/cache/info', '/cache/clear', '/test-api', '/test-transformer'],
+            'available_endpoints': ['/health', '/query', '/cache/info', '/cache/clear', '/test-api', '/test-transformer', '/debug/test-token'],
             'knowledge_base': {
                 'status': 'error',
                 'error': str(e)
@@ -97,10 +107,12 @@ def query_endpoint():
                 'message': 'The external knowledge base API is not accessible or returned no data',
                 'suggestions': [
                     'Please try again later',
-                    'Contact administrator if the issue persists'
+                    'Contact administrator if the issue persists',
+                    'Check if JWT token is configured correctly'
                 ],
                 'api_status': 'disconnected',
-                'matching_method': 'AI Transformer Model'
+                'matching_method': 'AI Transformer Model',
+                'debug_hint': 'Check /debug/test-token endpoint or set KNOWLEDGE_BASE_JWT_TOKEN environment variable'
             }), 503
         
         # Search knowledge base using AI transformer model
@@ -153,6 +165,49 @@ def query_endpoint():
             'status_code': 500
         }), 500
 
+@api_bp.route('/debug/test-token', methods=['POST'])
+def test_token():
+    """Test the API with a different JWT token (for debugging authentication issues)"""
+    try:
+        if not request.is_json:
+            return jsonify({
+                'error': 'Request must have Content-Type: application/json',
+                'usage': 'POST {"token": "your_jwt_token_here"}',
+                'status_code': 400
+            }), 400
+        
+        data = request.get_json()
+        if not data or 'token' not in data:
+            return jsonify({
+                'error': 'Missing required field: token',
+                'usage': 'POST {"token": "your_jwt_token_here"}',
+                'status_code': 400
+            }), 400
+        
+        test_token = data['token']
+        if not isinstance(test_token, str) or not test_token.strip():
+            return jsonify({
+                'error': 'Field "token" must be a non-empty string',
+                'status_code': 400
+            }), 400
+        
+        # Test the token
+        result = knowledge_service.test_with_token(test_token.strip())
+        
+        return jsonify({
+            'message': 'Token test completed',
+            'test_result': result,
+            'current_token_preview': f"{knowledge_service.jwt_token[:10]}...",
+            'note': 'If this token works, set KNOWLEDGE_BASE_JWT_TOKEN environment variable'
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Token test failed: {str(e)}")
+        return jsonify({
+            'error': 'Failed to test token',
+            'status_code': 500
+        }), 500
+
 @api_bp.route('/cache/info', methods=['GET'])
 def cache_info():
     """Get information about the knowledge base cache"""
@@ -200,7 +255,8 @@ def test_api():
             'test_result': test_result,
             'api_url': knowledge_service.api_url,
             'jwt_token_length': len(knowledge_service.jwt_token),
-            'note': 'This is the only data source - no fallback available'
+            'note': 'This is the only data source - no fallback available',
+            'debug_hint': 'Use /debug/test-token if authentication fails'
         }), 200
     except Exception as e:
         logger.error(f"Failed to test API: {str(e)}")
