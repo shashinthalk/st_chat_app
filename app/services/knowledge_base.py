@@ -15,7 +15,7 @@ class KnowledgeBaseService:
         self.transformer_url = "http://95.111.228.138:5002/query"
         
         # Try to get JWT token from environment variable first, then fallback to hardcoded
-        self.jwt_token = os.getenv('KNOWLEDGE_BASE_JWT_TOKEN', 'a>6rj{pvGUpdaZfy$(#2Ss)')
+        self.jwt_token = os.getenv('KNOWLEDGE_BASE_JWT_TOKEN', 'eyJhbGciOiJIUzI1NiJ9.e30.BVcRJKdpiTfPnDItgQQn9gZONWrRyc0oLIaqjlIK9Zk')
         
         self.headers = {
             "Authorization": f"Bearer {self.jwt_token}",
