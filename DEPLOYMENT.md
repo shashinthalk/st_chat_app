@@ -8,6 +8,7 @@ A **clean, lightweight Flask API** with:
 - ✅ **Docker ready**: Easy deployment
 - ✅ **Production ready**: Gunicorn + health checks
 - ✅ **GitHub Actions CI/CD**: Automated testing and deployment
+- ✅ **Nginx reverse proxy**: SSL/HTTPS support with `api.shashinthalk.cc`
 - ✅ **Expandable**: Ready to connect external ML models later
 
 ## 📦 Project Structure
@@ -28,19 +29,51 @@ st_chat_app/
 ├── run.py                       # App entry point
 ├── build-and-test.sh            # Build & test script
 ├── deploy-simple.sh             # Manual deployment script
+├── nginx-api.shashinthalk.cc.conf  # Nginx reverse proxy config
+├── nginx-setup.sh               # Nginx setup automation script
+├── test-api.sh                  # API testing through domain
+├── DEPLOYMENT.md                # This deployment guide
 └── README.md                    # API documentation
 ```
 
 ## 🚀 Deployment Options
 
-### Option 1: GitHub Actions (Recommended)
+### Option 1: Complete Production Setup (Recommended)
+
+**Full deployment with domain and SSL:**
+
+1. **Deploy Flask API:**
+   ```bash
+   # Using GitHub Actions (automatic)
+   git push origin main
+   
+   # OR manual deployment
+   ./deploy-simple.sh
+   ```
+
+2. **Set up Nginx reverse proxy:**
+   ```bash
+   # Copy files to server
+   scp nginx-api.shashinthalk.cc.conf your-server:/path/to/project/
+   scp nginx-setup.sh your-server:/path/to/project/
+   
+   # Run setup script on server (as root)
+   sudo ./nginx-setup.sh
+   ```
+
+3. **Test the complete setup:**
+   ```bash
+   ./test-api.sh
+   ```
+
+### Option 2: GitHub Actions Only
 
 **Automatic deployment on every push to main:**
 
 1. **Set up GitHub Secrets** in your repository (`Settings > Secrets and variables > Actions`):
    ```bash
-   REMOTE_HOST=your.server.ip.address
-   REMOTE_USER=your_ssh_username  
+   SERVER_IP=your.server.ip.address
+   USERNAME=your_ssh_username  
    SSH_PRIVATE_KEY=your_ssh_private_key_content
    ```
 
@@ -51,14 +84,7 @@ st_chat_app/
    git push origin main
    ```
 
-3. **Monitor deployment** in GitHub Actions tab - the workflow will:
-   - ✅ Test Flask app creation and data loading
-   - ✅ Run comprehensive API tests
-   - ✅ Build and test Docker image
-   - ✅ Deploy to your server via SSH
-   - ✅ Perform health checks to verify deployment
-
-### Option 2: Manual Deployment
+### Option 3: Manual Flask Deployment
 
 ```bash
 # Full automated deployment with testing
@@ -66,40 +92,95 @@ chmod +x deploy-simple.sh
 ./deploy-simple.sh
 ```
 
-### Option 3: Docker Only
+### Option 4: Docker Only
 
 ```bash
 # Build the image
 docker build -t flask-qa-api .
 
 # Run the container
-docker run -d --name flask-qa-api -p 5001:5001 flask-qa-api
+docker run -d --name flask-qa-container -p 5001:5001 flask-qa-api
 
 # Test it
 curl http://localhost:5001/health
 ```
 
-### Option 4: Direct Python
+## 🌐 Nginx Reverse Proxy Setup
+
+### **Your Domain: `api.shashinthalk.cc`**
+
+The Nginx configuration provides:
+- ✅ **SSL/HTTPS** with Let's Encrypt certificates
+- ✅ **HTTP to HTTPS redirect** for security
+- ✅ **Rate limiting** (30 requests/minute per IP)
+- ✅ **Security headers** (HSTS, XSS protection, etc.)
+- ✅ **CORS support** for web applications
+- ✅ **Custom error pages** with JSON responses
+- ✅ **Health check optimization** (no rate limiting)
+- ✅ **Access and error logging**
+
+### **Automated Setup**
 
 ```bash
-# Install dependencies
-pip install -r requirements.txt
+# Run on your server (as root)
+sudo ./nginx-setup.sh
+```
 
-# Run with Gunicorn (production)
-gunicorn --config gunicorn.conf.py run:app
+This script will:
+1. Install Nginx and Certbot (if not installed)
+2. Configure the reverse proxy
+3. Generate SSL certificates with Let's Encrypt
+4. Test the configuration
+5. Set up automatic HTTPS redirects
 
-# Or run with Flask (development)
-python run.py
+### **Manual Setup**
+
+```bash
+# 1. Copy Nginx configuration
+sudo cp nginx-api.shashinthalk.cc.conf /etc/nginx/sites-available/api.shashinthalk.cc
+
+# 2. Enable the site
+sudo ln -s /etc/nginx/sites-available/api.shashinthalk.cc /etc/nginx/sites-enabled/
+
+# 3. Test configuration
+sudo nginx -t
+
+# 4. Reload Nginx
+sudo systemctl reload nginx
+
+# 5. Get SSL certificate
+sudo certbot --nginx -d api.shashinthalk.cc
 ```
 
 ## 🔧 API Usage
 
-### Health Check
+### **Through Your Domain**
+
 ```bash
-curl http://localhost:5001/health
+# Health check
+curl https://api.shashinthalk.cc/health
+
+# Query endpoint
+curl -X POST -H "Content-Type: application/json" \
+  -d '{"question": "What is machine learning?"}' \
+  https://api.shashinthalk.cc/query
 ```
 
-**Response:**
+### **Direct Access (Local)**
+
+```bash
+# Health check
+curl http://localhost:5001/health
+
+# Query endpoint
+curl -X POST -H "Content-Type: application/json" \
+  -d '{"question": "What is AI?"}' \
+  http://localhost:5001/query
+```
+
+### **API Responses**
+
+**Health Check:**
 ```json
 {
   "status": "healthy",
@@ -109,14 +190,7 @@ curl http://localhost:5001/health
 }
 ```
 
-### Query Questions
-```bash
-curl -X POST -H "Content-Type: application/json" \
-  -d '{"question": "What is machine learning?"}' \
-  http://localhost:5001/query
-```
-
-**Match Found:**
+**Successful Query:**
 ```json
 {
   "question": "What is machine learning?",
@@ -130,7 +204,7 @@ curl -X POST -H "Content-Type: application/json" \
 - **"AI"** → matches **"artificial intelligence"**
 - **"ML"** → matches **"machine learning"**
 
-**No Match:**
+**No Match Found:**
 ```json
 {
   "error": "No matching answer found for your question",
@@ -178,33 +252,48 @@ The API is designed to easily connect external ML models:
    ```
 3. **Gradual migration** - test new ML endpoints alongside simple JSON matching
 
-## 🛠️ Build & Test Scripts
+## 🛠️ Testing & Monitoring
 
-### Comprehensive Testing
+### **Comprehensive API Testing**
 ```bash
-chmod +x build-and-test.sh
+# Test through domain
+./test-api.sh
+
+# Local testing
 ./build-and-test.sh
 ```
 
-This will:
-- ✅ Install dependencies
-- ✅ Test Flask app creation
-- ✅ Build Docker image
-- ✅ Test all endpoints
-- ✅ Generate deployment package
-
-### Manual Deployment
+### **Manual Testing**
 ```bash
-chmod +x deploy-simple.sh
-./deploy-simple.sh
+# Health check
+curl https://api.shashinthalk.cc/health
+
+# ML query
+curl -X POST -H "Content-Type: application/json" \
+  -d '{"question": "What is machine learning?"}' \
+  https://api.shashinthalk.cc/query
+
+# AI synonym test
+curl -X POST -H "Content-Type: application/json" \
+  -d '{"question": "What is AI?"}' \
+  https://api.shashinthalk.cc/query
 ```
 
-This will:
-- ✅ Build Docker image
-- ✅ Stop existing container
-- ✅ Start new container
-- ✅ Run comprehensive tests
-- ✅ Show resource usage
+### **Monitoring Commands**
+```bash
+# Nginx logs
+tail -f /var/log/nginx/api.shashinthalk.cc.access.log
+tail -f /var/log/nginx/api.shashinthalk.cc.error.log
+
+# Flask container logs
+docker logs flask-qa-container -f
+
+# System resources
+docker stats flask-qa-container
+
+# SSL certificate status
+sudo certbot certificates
+```
 
 ## 🌐 GitHub Actions Workflow Details
 
@@ -232,8 +321,8 @@ This will:
 ### Environment Variables
 
 **GitHub Actions requires these secrets:**
-- `REMOTE_HOST`: Your server IP address
-- `REMOTE_USER`: SSH username for server access
+- `SERVER_IP`: Your server IP address
+- `USERNAME`: SSH username for server access
 - `SSH_PRIVATE_KEY`: Private key content for SSH authentication
 
 **Application variables (optional):**
@@ -250,18 +339,67 @@ This will:
 | **Dependencies** | 15+ packages | 2 packages | 87% fewer |
 | **Response Time** | 100-500ms | 1-10ms | 95% faster |
 | **Deployment Time** | 10+ minutes | 1-2 minutes | 80% faster |
+| **SSL/HTTPS** | Not included | ✅ Included | Security boost |
 
 ## 🎯 Next Steps
 
 1. **Set up GitHub Secrets** for automated deployment
-2. **Push to main branch** to trigger first deployment
-3. **Test with your real questions** - Add them to `data.py`
-4. **Plan ML integration** - Design how you want to connect external models
-5. **Scale gradually** - Add ML features without breaking existing functionality
+2. **Configure Nginx reverse proxy** with SSL certificates
+3. **Push to main branch** to trigger first deployment
+4. **Test with your real questions** - Add them to `data.py`
+5. **Monitor logs and performance** using provided scripts
+6. **Plan ML integration** - Design how you want to connect external models
+7. **Scale gradually** - Add ML features without breaking existing functionality
 
 ## 🔍 Troubleshooting
 
-### GitHub Actions Deployment Fails
+### **Domain/DNS Issues**
+```bash
+# Test domain resolution
+dig api.shashinthalk.cc
+nslookup api.shashinthalk.cc
+
+# Test domain accessibility
+curl -I https://api.shashinthalk.cc
+```
+
+### **SSL Certificate Issues**
+```bash
+# Check certificate status
+sudo certbot certificates
+
+# Test SSL renewal
+sudo certbot renew --dry-run
+
+# Manual certificate generation
+sudo certbot --nginx -d api.shashinthalk.cc
+```
+
+### **Nginx Issues**
+```bash
+# Test configuration
+sudo nginx -t
+
+# Check Nginx status
+sudo systemctl status nginx
+
+# View error logs
+sudo tail -f /var/log/nginx/error.log
+```
+
+### **Flask Container Issues**
+```bash
+# Check container status
+docker ps | grep flask-qa-container
+
+# View container logs
+docker logs flask-qa-container
+
+# Restart container
+docker restart flask-qa-container
+```
+
+### **GitHub Actions Deployment Fails**
 ```bash
 # Check GitHub Actions logs in repository
 # Common issues:
@@ -270,39 +408,25 @@ This will:
 # - Server connectivity problems
 ```
 
-### Container Won't Start
-```bash
-# Check logs
-docker logs flask-qa-container
-
-# Check if port is available
-netstat -an | grep 5001
-```
-
-### Health Check Fails
-```bash
-# Test locally first
-python run.py
-curl http://localhost:5001/health
-```
-
-### Manual Deployment Issues
-```bash
-# Run the build and test script first
-./build-and-test.sh
-
-# Check Docker is running
-docker --version
-docker ps
-```
-
 ## 🔐 Security Notes
 
+- **SSL/HTTPS**: Automatic HTTPS redirects and HSTS headers
+- **Rate Limiting**: 30 requests per minute per IP address
 - **SSH Key**: Ensure your private key is properly formatted in GitHub secrets
 - **Server Access**: The deployment user should have Docker permissions
-- **Port Security**: Consider firewall rules for port 5001
+- **Firewall**: Ensure ports 80 and 443 are open for web traffic
 - **Container Security**: App runs as non-root user inside container
+- **CORS**: Configured for web application access
+
+## 🎉 Production URLs
+
+Your Flask Q&A API is now available at:
+
+- **Production Domain**: https://api.shashinthalk.cc
+- **Health Check**: https://api.shashinthalk.cc/health
+- **Query Endpoint**: https://api.shashinthalk.cc/query
+- **API Documentation**: Available at root URL
 
 ---
 
-**Your Flask API now has a complete CI/CD pipeline and is ready for automated production deployments! 🚀** 
+**Your Flask API now has a complete production setup with domain, SSL, and automated CI/CD pipeline! 🚀** 
