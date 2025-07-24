@@ -114,8 +114,8 @@ jobs:
       if: github.ref == 'refs/heads/main'
       uses: appleboy/scp-action@v0.1.4
       with:
-        host: ${{ secrets.REMOTE_HOST }}
-        username: ${{ secrets.REMOTE_USER }}
+        host: ${{ secrets.SERVER_IP }}
+        username: ${{ secrets.USERNAME }}
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         timeout: 60s
         source: "flask-qa-api.tar.gz"
@@ -125,8 +125,8 @@ jobs:
       if: github.ref == 'refs/heads/main'
       uses: appleboy/ssh-action@v1.0.0
       with:
-        host: ${{ secrets.REMOTE_HOST }}
-        username: ${{ secrets.REMOTE_USER }}
+        host: ${{ secrets.SERVER_IP }}
+        username: ${{ secrets.USERNAME }}
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         timeout: 60s
         command_timeout: 10m
