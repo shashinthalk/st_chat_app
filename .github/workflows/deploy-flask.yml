@@ -217,16 +217,25 @@ jobs:
               health_response=$(curl -s http://localhost:5001/health)
               echo "Health check response: $health_response"
               
-              # Test query endpoint
-                                echo "Testing query endpoint..."
-                  query_response=$(curl -s -X POST -H "Content-Type: application/json" \
-                    -d '{"question": "can u develop kotlin api backend"}' \
-                    http://localhost:5001/query)
-                  echo "Query test response: $query_response"
-                  
-                  echo "Testing AI transformer endpoint..."
-                  transformer_response=$(curl -s http://localhost:5001/test-transformer)
-                  echo "Transformer test response: $transformer_response"
+              # Test query endpoint (accept both 200 and 404 as valid responses)
+              echo "Testing query endpoint..."
+              query_response=$(curl -s -w "\n%{http_code}" -X POST -H "Content-Type: application/json" \
+                -d '{"question": "can u develop kotlin api backend"}' \
+                http://localhost:5001/query)
+              query_status=$(echo "$query_response" | tail -n1)
+              query_body=$(echo "$query_response" | head -n -1)
+              
+              if [[ "$query_status" == "200" ]]; then
+                echo "✅ Query test passed (AI match found): $query_body"
+              elif [[ "$query_status" == "404" ]]; then
+                echo "✅ Query test passed (no AI match, fallback working): $query_body"
+              else
+                echo "⚠️ Query test unexpected status $query_status: $query_body"
+              fi
+              
+              echo "Testing AI transformer endpoint..."
+              transformer_response=$(curl -s http://localhost:5001/test-transformer)
+              echo "Transformer test response: $transformer_response"
               
               echo "Deployment completed successfully!"
               exit 0
