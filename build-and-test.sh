@@ -18,7 +18,7 @@ python -c "from app import create_app; app = create_app(); print('✅ Flask app 
 
 # Test data loading
 echo "🧪 Testing Q&A data loading..."
-python -c "from app.data import QA_DATA; print(f'✅ Q&A data loaded: {len(QA_DATA)} items')"
+python -c "from app.data import FALLBACK_QA_DATA; print(f'✅ Fallback Q&A data loaded: {len(FALLBACK_QA_DATA)} items')"
 
 # Build Docker image
 echo "🐳 Building Docker image..."

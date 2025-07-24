@@ -31,7 +31,11 @@ jobs:
         
     - name: Test Q&A data loading
       run: |
-        python -c "from app.data import QA_DATA; print(f'✅ Q&A data loaded: {len(QA_DATA)} items')"
+        python -c "from app.data import FALLBACK_QA_DATA; print(f'✅ Fallback Q&A data loaded: {len(FALLBACK_QA_DATA)} items')"
+        
+    - name: Test AI transformer service
+      run: |
+        python -c "from app.services.knowledge_base import knowledge_service; print(f'✅ AI transformer service initialized: {knowledge_service.transformer_url}')"
         
     - name: Run basic API tests
       run: |

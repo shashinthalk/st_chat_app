@@ -217,10 +217,10 @@ curl -X POST -H "Content-Type: application/json" \
 
 ## 📝 Adding More Q&A Data
 
-Edit `app/data.py`:
+The API now uses AI-powered matching with an external transformer model at `http://95.111.228.138:5002/query`. Fallback data is available in `app/data.py`:
 
 ```python
-QA_DATA = [
+FALLBACK_QA_DATA = [
     {
         "question": "What is machine learning?",
         "answer": "Machine learning is a subset of artificial intelligence..."
