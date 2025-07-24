@@ -1,10 +1,5 @@
 FROM python:3.10-slim
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
-
 # Create user
 RUN useradd --create-home --shell /bin/bash appuser
 
@@ -30,10 +25,6 @@ ENV FLASK_ENV=production
 
 # Expose port
 EXPOSE 5001
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD curl -f http://localhost:5001/health || exit 1
 
 # Run application
 CMD ["gunicorn", "--config", "gunicorn.conf.py", "run:app"] 
